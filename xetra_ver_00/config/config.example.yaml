@@ -1,0 +1,60 @@
+# XETRA configuration. Copy to config.yaml and edit.
+# Default (this file, unedited): every provider is "mock" — XETRA will
+# run a full cycle against simulated data with zero external calls and
+# zero risk. This is the safe way to explore the orchestrator.
+#
+# To go live on any single stratum's tooling, change that section's
+# `provider` and fill `options`/environment variables per that adapter's
+# docstring in xetra/adapters/<kind>/<vendor>.py. You do not have to go
+# live on everything at once — mix mock and live freely.
+
+bas:
+  provider: mock      # mock | attackiq
+  options: {}
+  # Example for live AttackIQ:
+  # provider: attackiq
+  # options:
+  #   base_url: "https://your-tenant.attackiq.com"
+  #   api_token: "${ATTACKIQ_API_TOKEN}"   # prefer env var, not inline
+
+siem:
+  provider: mock       # mock | splunk
+  options: {}
+
+soar:
+  provider: mock        # mock | tines
+  options: {}
+
+edr:
+  provider: mock         # mock | crowdstrike
+  options: {}
+
+# Optional. "none" (default) disables LLM use entirely — ATTEST emits
+# no analyst_summary field. LLM output, when enabled, is ALWAYS
+# advisory-only text: see xetra/adapters/llm/base.py for the hard
+# boundary (it can never trigger an action, only draft a sentence a
+# human reads). See docs/LLM_INTEGRATION.md before enabling.
+llm:
+  provider: none      # none | mock | anthropic | openai
+  options: {}
+  # Example, live Claude:
+  # provider: anthropic
+  # options:
+  #   model: "<current model ID — see docs.anthropic.com/en/docs/about-claude/models>"
+  #   # api_key via ANTHROPIC_API_KEY env var, not inline
+
+evidence_output_dir: "evidence_output"
+
+# Set false to validate only the 9 core ARTEX-kill-chain TTP entries
+# (xetra/ttp_library/artex_ttps.yaml). True (default) also loads the
+# extended full-ATT&CK-Enterprise library (attack_enterprise.yaml).
+include_extended_attack_library: true
+
+# `scope` is passed through to every adapter call. For live BAS runs,
+# this MUST reflect your signed Rules of Engagement — scan/test targets
+# you are authorized to test, nothing else.
+scope:
+  authorized_by: "CHANGE ME — name/role of the approver who signed the RoE"
+  environment: "staging"   # staging | production — production requires separate sign-off
+  targets: []               # list authorized asset IDs/CIDRs/hostnames here
+  attackiq_assessment_map: {}  # attack_id -> AttackIQ assessment ID, once you build them

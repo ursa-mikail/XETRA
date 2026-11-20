@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Start the XETRA demo stack: a scheduled mock cycle every 5 minutes,
+# plus a dashboard web server at http://localhost:8420.
+set -euo pipefail
+cd "$(dirname "$0")"
+[ -f config/config.yaml ] || cp config/config.example.yaml config/config.yaml
+(cd docker && docker compose up --build -d)
+echo ""
+echo "XETRA is up."
+echo "Dashboard: http://localhost:8420"
+echo "(first cycle takes a few seconds to land — the dashboard will pick it up automatically)"

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XETRA — Control Validation Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #141821; --border: #262c3a; --text: #e6e9f0;
+    --muted: #8b93a7; --accent: #4fd1c5; --danger: #f56565; --warn: #f6ad55; --ok: #48bb78;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f7f8fa; --panel: #ffffff; --border: #e2e5eb; --text: #1a202c; --muted: #5a6577;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 1.5rem; margin: 0 0 2px; }
+  h3 { font-size: 1.05rem; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 2px 0 0; font-size: 0.9rem; }
+
+  .banner { border-radius: 10px; padding: 14px 18px; margin: 14px 0; font-weight: 600; font-size: 0.95rem; }
+  .banner.mock { background: rgba(246,173,85,.15); border: 1.5px solid var(--warn); color: var(--warn); }
+  .banner.live { background: rgba(72,187,120,.15); border: 1.5px solid var(--ok); color: var(--ok); }
+  .banner.stale { background: rgba(245,101,101,.15); border: 1.5px solid var(--danger); color: var(--danger); }
+  .banner small { font-weight: 400; display: block; margin-top: 2px; opacity: 0.9; }
+
+  .toprow { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+  button.primary { background: var(--accent); color: #0b0d12; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.85rem; }
+  button.primary:disabled { opacity: 0.5; cursor: wait; }
+  button.small { background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; }
+  button.small:hover { border-color: var(--accent); }
+
+  .section { margin-top: 28px; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; }
+
+  /* Configuration panel — the direct fix for "where do I set the LLM" */
+  .cfggrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .cfgcard { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .cfgcard.live { border-color: var(--ok); } .cfgcard.mock { border-color: var(--warn); } .cfgcard.missing { border-color: var(--danger); }
+  .cfgcard .cat { font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+  .cfgcard .prov { font-size: 1.1rem; font-weight: 700; margin: 2px 0 6px; }
+  .cfgcard .detail { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+  .cfgcard .detail code { background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 4px; font-size: 0.75rem; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; margin-bottom: 4px; }
+  .tag.live { background: rgba(72,187,120,.2); color: var(--ok); } .tag.mock { background: rgba(246,173,85,.2); color: var(--warn); }
+  .tag.missing { background: rgba(245,101,101,.2); color: var(--danger); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+  .card .num { font-size: 1.8rem; font-weight: 700; }
+  .card .label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: .04em; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .danger { color: var(--danger); }
+
+  /* Per-stratum drill-down */
+  .stratum-block { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+  .stratum-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; }
+  .stratum-head:hover { background: rgba(255,255,255,.03); }
+  .stratum-name { font-weight: 600; width: 130px; flex-shrink: 0; }
+  .barbg { background: var(--border); border-radius: 6px; height: 16px; overflow: hidden; display: flex; flex: 1; }
+  .barseg.blocked { background: var(--ok); } .barseg.detected_only { background: var(--warn); }
+  .barseg.undetected, .barseg.error { background: var(--danger); }
+  .stratum-pct { width: 60px; text-align: right; font-size: 0.85rem; flex-shrink: 0; }
+  .stratum-caret { width: 16px; text-align: center; color: var(--muted); flex-shrink: 0; }
+  .stratum-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
+  .stratum-body.open { display: block; }
+  .stratum-body h4 { font-size: 0.82rem; color: var(--muted); margin: 10px 0 6px; text-transform: uppercase; }
+  .remediation-item { font-size: 0.82rem; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .remediation-item .tech { font-weight: 600; } .remediation-item .action { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; overflow-x: auto; display: block; }
+  th, td { padding: 7px 9px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.85rem; }
+  th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--bg); }
+  .pill { padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+  .pill.blocked { background: rgba(72,187,120,.15); color: var(--ok); }
+  .pill.detected_only { background: rgba(246,173,85,.15); color: var(--warn); }
+  .pill.undetected, .pill.error { background: rgba(245,101,101,.15); color: var(--danger); }
+
+  .findings-wrap { max-height: 420px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  canvas { max-height: 240px; }
+  .dropzone { border: 1.5px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); margin: 10px 0; cursor: pointer; font-size: 0.85rem; }
+  input[type=file] { display: none; }
+  .filterbar { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .filterbar button.active { border-color: var(--accent); color: var(--accent); }
+  .empty { color: var(--muted); font-style: italic; text-align: center; padding: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toprow">
+    <div>
+      <h1>XETRA</h1>
+      <p class="sub">Control validation — configuration, status, and per-stratum control in one place.</p>
+    </div>
+    <button class="primary" id="triggerBtn" style="display:none;">Run full cycle now</button>
+  </div>
+
+  <div id="modeBanner"></div>
+  <div id="staleBanner"></div>
+
+  <!-- Configuration is ALWAYS visible, with or without any cycle data —
+       this is the answer to "where do I set the LLM/BAS/etc.", and a
+       brand-new install with zero cycles run is exactly when you need
+       it most. Never nest this inside a data-gated container. -->
+  <div class="section">
+    <h3>Configuration — where everything is set</h3>
+    <div class="cfggrid" id="cfgGrid">
+      <div class="empty">Loading configuration...</div>
+    </div>
+  </div>
+
+  <div id="mainContent" style="display:none;">
+
+    <div class="section">
+      <h3>Summary</h3>
+      <div class="grid" id="summaryCards"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><h3>Coverage &amp; Control by Stratum</h3></div>
+      <div id="strataBlocks"></div>
+    </div>
+
+    <div class="section">
+      <h3>Trend (last 20 cycles)</h3>
+      <canvas id="trendChart"></canvas>
+    </div>
+
+    <div class="section">
+      <h3>All Findings</h3>
+      <div class="filterbar" id="filterBar">
+        <button class="small active" data-f="all">All</button>
+        <button class="small" data-f="gap">Gaps only</button>
+        <button class="small" data-f="blocked">Blocked</button>
+        <button class="small" data-f="detected_only">Detected only</button>
+        <button class="small" data-f="undetected">Undetected</button>
+      </div>
+      <div class="findings-wrap">
+        <table>
+          <thead><tr><th>Technique</th><th>Stratum</th><th>BAS Outcome</th><th>SIEM Alerted</th><th>Gap?</th></tr></thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Load a cycle manually</h3>
+    <div class="dropzone" id="dropzone">
+      Drop an evidence JSON file here, or click to choose one. (Not needed if the server found cycles automatically.)
+      <input type="file" id="fileInput" accept=".json">
+    </div>
+  </div>
+
+  <div id="emptyState" class="empty">Checking for a running XETRA server...</div>
+</div>
+
+<script>
+const STRATA_ORDER = ["infra_network", "service", "system", "protocol", "algorithm", "software", "hardware"];
+const CATEGORY_LABELS = { bas: "BAS (HUNT)", siem: "SIEM (HUNT)", soar: "SOAR (RESPOND)", edr: "EDR (HARDEN/RECOVER)", llm: "LLM (ATTEST, optional)" };
+let chartInstance = null;
+let currentFindings = [];
+let currentRemediations = [];
+let currentFilter = 'all';
+let serverReachable = false;
+let openStrata = new Set();
+
+async function pollStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    if (!resp.ok) throw new Error('bad status');
+    const status = await resp.json();
+    serverReachable = true;
+    if (!status.has_data) {
+      document.getElementById('emptyState').textContent =
+        'Server is running but no cycles have landed yet. First cycle lands within a few minutes, or click "Run full cycle now".';
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('mainContent').style.display = 'none';
+    } else {
+      document.getElementById('emptyState').style.display = 'none';
+      renderBanners(status);
+      const histResp = await fetch('/api/history');
+      const hist = (await histResp.json()).history;
+      if (hist.length) renderTrend(hist);
+      const latestFile = hist[hist.length - 1]?.file;
+      if (latestFile) {
+        const fullResp = await fetch('/evidence/' + latestFile);
+        renderFull(await fullResp.json());
+      }
+    }
+    if (status.can_trigger) {
+      const btn = document.getElementById('triggerBtn');
+      btn.style.display = 'inline-block';
+      btn.onclick = () => triggerCycle(null, btn);
+    }
+    // Configuration panel loads independently of cycle data — you should
+    // be able to see where things are set even before any cycle has run.
+    const cfgResp = await fetch('/api/config');
+    renderConfig(await cfgResp.json());
+  } catch (e) {
+    if (!serverReachable) {
+      document.getElementById('emptyState').textContent =
+        'No server detected at this address \u2014 drag a cycle\'s evidence JSON below, or run `python -m xetra.cli serve --config config/config.yaml`.';
+    }
+  }
+}
+
+function renderConfig(cfg) {
+  const el = document.getElementById('cfgGrid');
+  if (!cfg.available) {
+    el.innerHTML = `<div class="empty">${cfg.message}</div>`;
+    return;
+  }
+  el.innerHTML = Object.entries(cfg.categories).map(([key, c]) => {
+    let tagClass, tagText;
+    if (!c.is_live) { tagClass = 'mock'; tagText = key === 'llm' ? 'DISABLED' : 'MOCK'; }
+    else if (c.configured) { tagClass = 'live'; tagText = 'LIVE \u2713'; }
+    else { tagClass = 'missing'; tagText = 'MISSING CREDS'; }
+    const cardClass = tagClass;
+    const envLine = c.env_vars_needed.length
+      ? `Needs: ${c.env_vars_needed.map(v => `<code>${v}</code>`).join(' ')}`
+      : (c.is_live ? 'No env var required.' : 'N/A while disabled/mock.');
+    return `<div class="cfgcard ${cardClass}">
+      <div class="cat">${CATEGORY_LABELS[key] || key}</div>
+      <span class="tag ${tagClass}">${tagText}</span>
+      <div class="prov">${c.provider}</div>
+      <div class="detail">
+        Set in: <code>${c.where_to_set.split(': ')[1]}</code><br>
+        ${envLine}
+        ${c.error ? `<br><span style="color:var(--danger)">${c.error}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function triggerCycle(stratum, btnEl) {
+  btnEl.disabled = true;
+  const originalText = btnEl.textContent;
+  btnEl.textContent = 'Running...';
+  try {
+    const resp = await fetch('/api/trigger', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(stratum ? { stratum } : {}),
+    });
+    const { job_id } = await resp.json();
+    const poll = setInterval(async () => {
+      const jr = await fetch('/api/job/' + job_id);
+      const job = await jr.json();
+      if (job.status === 'completed' || job.status === 'failed') {
+        clearInterval(poll);
+        btnEl.disabled = false;
+        btnEl.textContent = originalText;
+        if (job.status === 'failed') alert('Cycle failed: ' + job.error);
+        pollStatus();
+      }
+    }, 1500);
+  } catch (e) {
+    btnEl.disabled = false;
+    btnEl.textContent = originalText;
+    alert('Could not trigger a cycle: ' + e.message);
+  }
+}
+
+function renderBanners(status) {
+  const modeB = document.getElementById('modeBanner');
+  if (status.mock_mode) {
+    modeB.innerHTML = `<div class="banner mock">MOCK MODE \u2014 this is NOT real audit evidence.
+      <small>${status.mock_mode_warning || 'At least one core adapter (BAS/SIEM/SOAR/EDR) is simulated.'}</small></div>`;
+  } else {
+    modeB.innerHTML = `<div class="banner live">LIVE MODE \u2014 all core adapters are real, configured providers.</div>`;
+  }
+  const staleB = document.getElementById('staleBanner');
+  staleB.innerHTML = status.stale
+    ? `<div class="banner stale">STALE DATA \u2014 last cycle was ${status.age_minutes} minutes ago.
+        <small>Check the scheduler (xetra-cycle container / cron) is actually running.</small></div>`
+    : '';
+  document.getElementById('mainContent').style.display = 'block';
+  renderCards(status.summary || {});
+}
+
+function renderCards(s) {
+  const cards = [
+    { label: 'Techniques Tested', val: s.techniques_tested ?? '\u2014', cls: '' },
+    { label: 'Gaps Found', val: s.gaps_found ?? '\u2014', cls: (s.gaps_found > 0 ? 'warn' : 'ok') },
+    { label: 'Responses Triggered', val: s.responses_triggered ?? '\u2014', cls: '' },
+    { label: 'Recoveries Validated', val: s.recoveries_validated ?? '\u2014', cls: 'ok' },
+    { label: 'Still Open', val: s.recoveries_still_gapped ?? '\u2014', cls: (s.recoveries_still_gapped > 0 ? 'danger' : 'ok') },
+  ];
+  document.getElementById('summaryCards').innerHTML = cards.map(c =>
+    `<div class="card"><div class="num ${c.cls}">${c.val}</div><div class="label">${c.label}</div></div>`
+  ).join('');
+}
+
+function renderFull(data) {
+  currentFindings = data.findings || [];
+  currentRemediations = data.remediations || [];
+  renderStrata();
+  renderFindingsTable();
+}
+
+function renderStrata() {
+  const byStratum = {};
+  STRATA_ORDER.forEach(s => byStratum[s] = { blocked: 0, detected_only: 0, undetected: 0, error: 0, total: 0 });
+  currentFindings.forEach(f => {
+    if (!byStratum[f.stratum]) byStratum[f.stratum] = { blocked: 0, detected_only: 0, undetected: 0, error: 0, total: 0 };
+    byStratum[f.stratum][f.bas_outcome] = (byStratum[f.stratum][f.bas_outcome] || 0) + 1;
+    byStratum[f.stratum].total++;
+  });
+
+  const el = document.getElementById('strataBlocks');
+  el.innerHTML = Object.entries(byStratum).filter(([,v]) => v.total > 0).map(([stratum, v]) => {
+    const segs = ['blocked', 'detected_only', 'undetected', 'error'].map(o =>
+      v[o] > 0 ? `<div class="barseg ${o}" style="width:${(v[o]/v.total*100)}%" title="${o}: ${v[o]}"></div>` : ''
+    ).join('');
+    const pct = v.total ? Math.round((v.blocked / v.total) * 100) : 0;
+    const remItems = currentRemediations.filter(r => r.stratum === stratum);
+    const isOpen = openStrata.has(stratum);
+    return `<div class="stratum-block">
+      <div class="stratum-head" onclick="toggleStratum('${stratum}')">
+        <div class="stratum-caret">${isOpen ? '\u25be' : '\u25b8'}</div>
+        <div class="stratum-name">${stratum}</div>
+        <div class="barbg">${segs}</div>
+        <div class="stratum-pct">${pct}% ok</div>
+      </div>
+      <div class="stratum-body ${isOpen ? 'open' : ''}" id="stratum-body-${stratum}">
+        <h4>Open remediation items (${remItems.length})</h4>
+        ${remItems.length
+          ? remItems.map(r => `<div class="remediation-item"><span class="tech">${r.technique_id}</span> \u2014 <span class="action">${r.recommended_action}</span></div>`).join('')
+          : '<p class="empty" style="padding:8px 0;">No open gaps in this stratum.</p>'}
+        <h4>Controls</h4>
+        <button class="small" onclick="retestStratum('${stratum}', this)">Re-test this stratum only</button>
+      </div>
+    </div>`;
+  }).join('') || '<p class="empty">No findings yet.</p>';
+}
+
+function toggleStratum(stratum) {
+  if (openStrata.has(stratum)) openStrata.delete(stratum); else openStrata.add(stratum);
+  renderStrata();
+}
+
+function retestStratum(stratum, btnEl) {
+  triggerCycle(stratum, btnEl);
+}
+
+function renderFindingsTable() {
+  let rows = currentFindings;
+  if (currentFilter === 'gap') rows = rows.filter(f => f.gap);
+  else if (currentFilter !== 'all') rows = rows.filter(f => f.bas_outcome === currentFilter);
+  document.getElementById('findingsBody').innerHTML = rows.map(f => `
+    <tr>
+      <td>${f.technique_id}</td>
+      <td>${f.stratum}</td>
+      <td><span class="pill ${f.bas_outcome}">${f.bas_outcome}</span></td>
+      <td>${f.siem_alerted ? 'yes' : 'no'}</td>
+      <td>${f.gap ? 'yes' : '\u2014'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="empty">No findings match this filter.</td></tr>';
+}
+
+document.getElementById('filterBar').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#filterBar button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  currentFilter = e.target.dataset.f;
+  renderFindingsTable();
+});
+
+function renderTrend(history) {
+  const labels = history.map(h => new Date(h.generated_at).toLocaleString());
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Gaps Found', data: history.map(h => h.summary.gaps_found ?? 0), borderColor: '#f6ad55', tension: 0.3 },
+        { label: 'Still Open', data: history.map(h => h.summary.recoveries_still_gapped ?? 0), borderColor: '#f56565', tension: 0.3 },
+        { label: 'Recovered', data: history.map(h => h.summary.recoveries_validated ?? 0), borderColor: '#48bb78', tension: 0.3 },
+      ],
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
+  });
+}
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--accent)'; });
+dropzone.addEventListener('dragleave', () => dropzone.style.borderColor = 'var(--border)');
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.style.borderColor = 'var(--border)';
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      document.getElementById('emptyState').style.display = 'none';
+      renderBanners({ mock_mode: data.mock_mode, mock_mode_warning: data.mock_mode_warning, stale: false, summary: data.summary });
+      renderFull(data);
+    } catch (err) {
+      alert('Could not parse this file as XETRA evidence JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+pollStatus();
+setInterval(pollStatus, 10000);
+</script>
+</body>
+</html>

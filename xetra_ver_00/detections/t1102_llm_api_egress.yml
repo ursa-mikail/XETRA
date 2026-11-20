@@ -1,0 +1,31 @@
+title: Unexpected Egress to LLM Provider API (ARTEX Fingerprint)
+id: 8d26e884-1f70-4a95-9c9c-xetra0005
+status: stable
+description: >
+  ARTEX ships no bundled model — every agent "thought" is an outbound
+  call to a third-party LLM API. This rule flags server/workload
+  identities (not sanctioned AI-product endpoints) reaching known LLM
+  provider domains, per FBI FLASH-20261113-001.
+references:
+    - https://attack.mitre.org/techniques/T1102/
+author: XETRA Project
+date: 2026/11/20
+logsource:
+    category: proxy
+detection:
+    selection:
+        dest_hostname|contains:
+            - 'api.anthropic.com'
+            - 'api.deepseek.com'
+            - 'open.bigmodel.cn'
+            - 'api.x.ai'
+            - 'xcai.pro'
+    filter:
+        src_identity|in: '%SANCTIONED_AI_WORKLOAD_IDENTITIES%'   # populate per environment
+    condition: selection and not filter
+falsepositives:
+    - Newly provisioned, legitimate AI-product workloads not yet added to the sanctioned list
+level: high
+tags:
+    - attack.command_and_control
+    - attack.t1102

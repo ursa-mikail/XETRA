@@ -1,0 +1,23 @@
+title: Potential Kerberoasting Activity
+id: 8d26e884-1f70-4a95-9c9c-xetra0001
+status: stable
+description: Detects abnormal volume of Kerberos service ticket (TGS) requests using RC4 encryption, a common Kerberoasting precursor.
+references:
+    - https://attack.mitre.org/techniques/T1558/003/
+author: XETRA Project
+date: 2026/11/20
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4769
+        TicketEncryptionType: '0x17'   # RC4-HMAC — legacy/weak, favored for offline cracking
+    timeframe: 5m
+    condition: selection | count() by TargetUserName > 10
+falsepositives:
+    - Legacy applications still requiring RC4 Kerberos tickets
+level: high
+tags:
+    - attack.credential_access
+    - attack.t1558.003

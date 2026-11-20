@@ -1,0 +1,90 @@
+# XETRA TTP Library
+# Source: FBI FLASH-20261113-001 (TLP:CLEAR), "Threat Overview of ARTEX
+# Autonomous Penetration Testing Framework," 13 Nov 2026.
+#
+# This file is a *detection-validation catalog*, not an exploitation guide.
+# Each entry names a MITRE ATT&CK technique ID — the same identifiers used
+# by every licensed BAS platform (AttackIQ, Pentera, SafeBreach, Cymulate)
+# to select which of *their own* pre-built, safe emulation modules to run.
+# No technique-level implementation detail lives here or anywhere in this
+# repo; HUNT only ever asks a licensed platform to run the scenario it
+# already owns for a given ATT&CK ID, then checks whether your SIEM/EDR
+# saw it.
+
+- id: artex-recon-01
+  stratum: infra_network
+  attack_ids: ["T1595", "T1580", "T1087.004", "T1069.003", "T1526"]
+  description: >
+    Active scanning, cloud infrastructure/account discovery, cloud-groups
+    and cloud-service discovery — mirrors ARTEX Phase 1 (Reconnaissance).
+  expected_control: "Egress/scan-detection alert; cloud audit log review"
+
+- id: artex-access-01
+  stratum: service
+  attack_ids: ["T1190", "T1078", "T1133", "T1195", "T1199", "T1606.002", "T1552.001"]
+  description: >
+    Exploit public-facing app, valid-account abuse, trusted-relationship
+    pivot, forged SAML, credentials in files — mirrors ARTEX Phase 2
+    (Initial Access).
+  expected_control: "WAF/DAST gate; SAML assertion-signature validation"
+
+- id: artex-persist-01
+  stratum: system
+  attack_ids: ["T1505.003", "T1078.004", "T1098.001", "T1574.001", "T1036.005", "T1105", "T1059"]
+  description: >
+    Web shell deployment, additional cloud credentials, DLL hijack,
+    masquerading, tool transfer — mirrors ARTEX Phase 3 (Persistence).
+  expected_control: "FIM on web app paths; EDR process-lineage alert"
+
+- id: artex-privesc-01
+  stratum: system
+  attack_ids: ["T1134.001", "T1098.003", "T1552.005", "T1606", "T1558.003"]
+  description: >
+    Token manipulation, additional cloud roles, instance-metadata abuse,
+    forged web credentials, Kerberoasting — mirrors ARTEX Phase 4
+    (Privilege Escalation).
+  expected_control: "Kerberoasting-volume alert; IAM role-assumption anomaly"
+
+- id: artex-discovery-01
+  stratum: system
+  attack_ids: ["T1518.001", "T1555", "T1087.002", "T1552.006", "T1059.001"]
+  description: >
+    Security-software discovery, credentials from password stores, domain
+    account discovery, GPP, PowerShell — mirrors ARTEX Phase 5 (Internal
+    Recon), including EDR-coverage-gap enumeration.
+  expected_control: "EDR-coverage monitoring as its own alert category"
+
+- id: artex-lateral-01
+  stratum: system
+  attack_ids: ["T1550.003", "T1550.002", "T1021.006", "T1557.001"]
+  description: >
+    Pass-the-Ticket, Pass-the-Hash, WinRM abuse, LLMNR/SMB relay — mirrors
+    ARTEX Phase 6 (Lateral Movement).
+  expected_control: "SMB-signing enforcement; relay-attempt detection"
+
+- id: artex-collect-01
+  stratum: service
+  attack_ids: ["T1114.002", "T1555.006", "T1530", "T1005", "T1074.001", "T1074.002"]
+  description: >
+    Remote email collection, cloud secrets stores, cloud-storage data
+    access, local staging — mirrors ARTEX Phase 7 (Collection/Exfil Prep).
+  expected_control: "DLP on bulk data access; staging-volume anomaly"
+
+- id: artex-c2-01
+  stratum: protocol
+  attack_ids: ["T1090", "T1090.003", "T1572", "T1071.001"]
+  description: >
+    Proxy, multi-hop proxy, protocol tunneling, web-protocol C2 — mirrors
+    ARTEX Phase 8 (Command and Control).
+  expected_control: "Tunnel-signature detection; anomalous long-lived HTTPS sessions"
+
+- id: artex-llm-egress-01
+  stratum: infra_network
+  attack_ids: ["T1102"]
+  description: >
+    ARTEX's one unavoidable fingerprint — it ships no model, so every
+    agent "thought" is an outbound call to an LLM provider API
+    (api.anthropic.com, api.deepseek.com, open.bigmodel.cn, api.x.ai) or
+    a reseller/proxy (e.g. xcai[.]pro). Validate that unexpected egress to
+    these destinations from server/workload identities alerts.
+  expected_control: "Egress allow-listing + anomalous-LLM-API-call alert"

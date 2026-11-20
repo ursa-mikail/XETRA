@@ -1,0 +1,39 @@
+name: XETRA CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          pip install -e .
+          pip install -r requirements-dev.txt
+      - name: Run test suite (mock adapters — no credentials required)
+        run: pytest tests/ -v --cov=xetra
+      - name: Smoke-test CLI end to end
+        run: |
+          python -m xetra.cli init --config config/config.yaml --non-interactive
+          python -m xetra.cli doctor --config config/config.yaml
+          python -m xetra.cli run --config config/config.yaml --label ci-smoke-test
+          python -m xetra.cli status --config config/config.yaml
+      - name: Smoke-test dashboard server (status/history/trigger)
+        run: |
+          python -m xetra.cli serve --port 8420 --evidence-dir evidence_output --config config/config.yaml &
+          sleep 1
+          curl -sf http://localhost:8420/healthz
+          curl -sf http://localhost:8420/api/status | grep -q '"has_data": true' || (echo "status check failed" && exit 1)
+          curl -sf http://localhost:8420/api/history
+          curl -sf http://localhost:8420/ | grep -qi "<html"
+          JOB=$(curl -sf -X POST http://localhost:8420/api/trigger)
+          echo "$JOB"

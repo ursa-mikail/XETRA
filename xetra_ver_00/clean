@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Stop the stack AND remove containers, the built image, and the
+# evidence volume. Full reset back to a fresh checkout.
+set -euo pipefail
+cd "$(dirname "$0")"
+(cd docker && docker compose down -v --rmi local)
+rm -f config/config.yaml
+echo "XETRA cleaned: containers, image, evidence volume, and local config removed."

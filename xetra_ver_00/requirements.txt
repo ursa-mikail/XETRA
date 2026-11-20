@@ -1,0 +1,9 @@
+PyYAML>=6.0
+requests>=2.31
+
+# Not required by the Dockerfile anymore (it uses standard, isolated
+# `pip install -e .`, which fetches its own build backend). Listed here
+# only so a local `pip install -r requirements.txt` on a machine with
+# no internet access for the build-isolation step still has them handy.
+setuptools>=68
+wheel>=0.42

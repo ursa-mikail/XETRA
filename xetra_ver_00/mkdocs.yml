@@ -1,0 +1,13 @@
+site_name: XETRA
+site_description: "The structural inverse of ARTEX — continuous, evidence-generating control validation across 7 strata."
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: teal
+nav:
+  - Home: index.md
+  - Architecture: ARCHITECTURE.md
+  - Control Mapping: CONTROL_MAPPING.md
+  - Going Live: GOING_LIVE.md
+docs_dir: docs

@@ -1,0 +1,22 @@
+title: Mass File Rename/Extension Change Rate Anomaly
+id: 8d26e884-1f70-4a95-9c9c-xetra0003
+status: experimental
+description: Detects a high rate of file rename/modify events with new/unknown extensions in a short window, a common ransomware-encryption signature.
+references:
+    - https://attack.mitre.org/techniques/T1486/
+author: XETRA Project
+date: 2026/11/20
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventType: 'rename'
+    timeframe: 2m
+    condition: selection | count() by ProcessGuid > 50
+falsepositives:
+    - Legitimate bulk file-conversion or backup/sync software
+level: high
+tags:
+    - attack.impact
+    - attack.t1486

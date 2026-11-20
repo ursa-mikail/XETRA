@@ -1,0 +1,30 @@
+title: Security Service Tampering (EDR/AV/Logging Stop Attempt)
+id: 8d26e884-1f70-4a95-9c9c-xetra0004
+status: stable
+description: Detects attempts to stop, disable, or uninstall known EDR/AV/logging services.
+references:
+    - https://attack.mitre.org/techniques/T1562/001/
+author: XETRA Project
+date: 2026/11/20
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_cmd:
+        CommandLine|contains:
+            - 'sc stop'
+            - 'sc delete'
+            - 'Set-MpPreference -Disable'
+            - 'auditpol /clear'
+    selection_target:
+        CommandLine|contains:
+            - 'WinDefend'
+            - 'CSFalconService'
+            - 'Sense'
+    condition: selection_cmd and selection_target
+falsepositives:
+    - Authorized maintenance windows (exempt via change-ticket correlation, not by removing this rule)
+level: critical
+tags:
+    - attack.defense_evasion
+    - attack.t1562.001
