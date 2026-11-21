@@ -1,195 +1,155 @@
 # XETRA
 
-**ARTEX, reversed, is XETRA.**
+**ARTEX, reversed, is XETRA.** A control-validation dashboard that keeps testing whether your defences catch the techniques described in FBI FLASH-20261113-001 — across all seven layers of your stack — and keeps the proof.
 
-XETRA is a continuous, evidence-generating control-validation orchestrator built as the structural inverse of [ARTEX](https://www.ic3.gov/) — the autonomous offensive agent framework described in FBI FLASH-20261113-001 (13 Nov 2026, TLP:CLEAR). Where ARTEX chains reconnaissance → exploitation → persistence → privilege escalation → lateral movement → exfiltration → C2 into a single breach, XETRA chains **HUNT → HARDEN → RESPOND → RECOVER → ATTEST** into a single, repeatable proof that each of those techniques is caught, contained, and recoverable — across the same 7 strata (infrastructure/network, service, system, protocol, algorithm, software, hardware) that ARTEX attacks.
+![Overview: every square is one technique, grouped into the seven strata](docs/img/03-overview.png)
 
-**→ New here? Follow `QUICKSTART.md` step by step — it tells you exactly what to expect at each step, so you're never guessing whether something worked.**
+## Start in 60 seconds
 
+**Docker (the demo stack):**
+
+```bash
+./up        # → http://localhost:8420   (a cycle starts immediately, then every 5 minutes)
+./down      # stop; your data is kept
+./clean     # stop and erase everything (asks first; ./clean -y to skip the question)
 ```
+
+**Without Docker:**
+
+```bash
 pip install -e .
-python -m xetra.cli init --config config/config.yaml     # guided setup — asks what to use, writes config, runs doctor for you
-python -m xetra.cli run --config config/config.yaml --label first-run
-python -m xetra.cli status --config config/config.yaml   # what just happened, at a glance
-python -m xetra.cli serve --config config/config.yaml    # dashboard at http://localhost:8420
+xetra start         # creates its own config, opens http://localhost:8420
 ```
 
-Runs immediately, with **zero credentials and zero external calls**, against deterministic mock data. Nothing in this repo touches a live system unless you explicitly configure a licensed adapter (see **Going Live**, below) — and `doctor` will tell you, explicitly, whether you're still in mock mode before you do anything with the results.
+Everything runs on **simulated data** until you connect real tools, so there is nothing to break. The screen tells you what to do next. No account, no credentials, no config file to edit.
 
-## CLI Commands
+> Docker note: the compose file, Dockerfile and scripts are validated by tests, and a container start was replayed outside Docker (same command, paths and environment). `docker compose up` itself has not been run by the authors — if `./up` misbehaves, `docker compose -f docker/docker-compose.yml logs` will say why.
+
+---
+
+## The one idea: you can always see, and always control
+
+| You can always **see** | You can always **do** |
+|---|---|
+| **Stale data** — a red banner on every stratum screen if results are older than they should be, or the scheduler looks stuck. |
+| **Mode** — a badge in the top bar: *Simulated data* or *Live tools*. Simulated results can never be mistaken for evidence. | **Run** any combination of strata from the top bar. Only those are re-tested. |
+| **Run state** — idle, running (with a live counter), stopping, paused — on every screen. | **Stop** a run mid-flight. A stopped run saves *nothing*, so half a run never looks like a result. |
+| **Every technique** — one square each, on the Overview and on each stratum's tab. | **Pause** everything (manual *and* scheduled runs) with one switch. |
+| **Unknown ≠ pass** — a technique XETRA couldn't test is shown as *unknown*, never as caught. | **Decide** each gap: approve the fix, or accept the risk with your name and a reason. |
+| **Every action** — runs, decisions, setting changes, connection tests — in the Activity log. | **Schedule**, and turn real containment playbooks on or off. They are **off** by default. |
+
+### Seven strata, seven tabs — and nothing gets lost
+
+Each stratum has its own tab in the left rail with a live health marker and gap count. Re-testing one stratum **only updates that stratum**; the other six keep their last results. (Earlier versions showed only the most recent run, so running one stratum made the other six vanish. That bug is fixed and covered by a regression test.)
+
+![One stratum: every technique, what your controls should do, and the fix status](docs/img/04-stratum-tab.png)
+
+---
+
+## Connect your tools — guided, no guessing
+
+**Setup** walks through six steps. For each tool you: pick it, paste the credential, press **Test connection**, then **Save**. You get a plain answer and what to do next:
+
+![Setup: a wrong key gets a plain-English answer and the exact fix](docs/img/07-setup-llm.png)
+
+- **AI summaries (Claude or GPT)** — paste your key and press *Test*. XETRA asks your account which models it can use and gives you a **dropdown**, so you never have to guess a model name. The AI only drafts text for a human to read; it cannot start a run or trigger any response.
+- Credentials are **write-only**: stored in `.xetra/secrets.env` (private file), never shown again, never sent to the browser, never written to the log.
+- Where a vendor has no safe read-only check, the test says so honestly ("reachable — credentials are proven on the first run") instead of pretending.
+
+| Category | Choices |
+|---|---|
+| Attack emulation (BAS) | AttackIQ · Pentera · SafeBreach · Cymulate |
+| Detection (SIEM) | Splunk · Microsoft Sentinel · Elastic |
+| Response (SOAR) | Tines · Cortex XSOAR |
+| Endpoint (EDR) | CrowdStrike Falcon · Microsoft Defender for Endpoint |
+| AI summaries (optional) | Claude (Anthropic) · GPT (OpenAI) |
+
+Switch **one category at a time**; mix simulated and live freely. Details per vendor: [docs/GOING_LIVE.md](docs/GOING_LIVE.md).
+
+## The fix list — humans decide
+
+Every missed technique becomes an item. XETRA proposes the fix; **a named person decides**. When a later run catches the technique, XETRA marks it **verified** itself — and re-opens it if it regresses.
+
+![Fix list](docs/img/06-fix-list.png)
+
+![Recording a decision needs a name, and a reason for accepted risk](docs/img/05-fix-decision.png)
+
+## Watch a run, stop it any time
+
+![A run in progress, with Stop always one click away](docs/img/02-run-in-progress.png)
+
+The five agents run in order — **Hunt** (run the emulation, check for an alert) → **Harden** (propose fixes) → **Respond** (containment playbook) → **Recover** (retest each gap) → **Attest** (save the evidence package).
+
+## All findings, trend, and evidence files
+
+![All findings across the seven strata, missed first, filterable, CSV export](docs/img/11-all-findings.png)
+
+* **All findings** — every technique's latest result in one filterable table.
+* **Trend** (Overview) — techniques currently missed across *all* strata after each of the last 20 runs, so a one-stratum re-test never distorts the line.
+* **Open an evidence file** — drop any `xetra-attest-*.json` (including from v0.1) onto Activity & evidence to read it. Entirely in your browser.
+
+![Stale data banner](docs/img/12-stale-banner.png)
+
+## Controls and audit
+
+![Controls: pause, schedule, live playbooks](docs/img/10-controls.png)
+
+![Activity log and evidence downloads](docs/img/09-activity.png)
+
+* **Evidence** per run (`evidence_output/*.json`), labelled `mock_mode`, `partial` and which strata it covered. **Download full posture** gives one complete, current snapshot of all seven strata.
+* **Activity log** (`.xetra/events.jsonl`) is append-only and downloadable.
+
+---
+
+## What the status words mean
+
+| Word | Meaning |
+|---|---|
+| **Caught** | The simulation was blocked or alerted on. |
+| **Missed** | It ran and nothing caught it. A real finding → goes on the fix list. |
+| **Couldn't test (unknown)** | XETRA couldn't run it (missing mapping, vendor error). **Not a pass, not a gap.** Never triggers containment. |
+| **Not run yet** | No result exists. Not "passing". |
+
+## Safety defaults
+
+* Listens on **127.0.0.1** only. Requests from other sites or hostnames are refused.
+* **Real containment playbooks are off** until a human enables them. While off, XETRA records what it *would* have run.
+* An LLM failure (bad key, outage) never costs you a run's evidence.
+* A live attack-emulation tool requires a recorded authoriser (`doctor` fails without one).
+
+## Commands
 
 | Command | What it does |
 |---|---|
-| `xetra init --config ...` | **Start here.** Guided wizard: asks what BAS/SIEM/SOAR/EDR/LLM to use, writes `config.yaml`, prints exactly which env vars you need for what you picked, then runs `doctor` automatically so you see the result immediately. Add `--non-interactive` for an all-mock config with no prompts. |
-| `xetra doctor --config ...` | Pre-flight check: config validity, adapter configuration state (mock vs. live), TTP library integrity, scope sanity. Reports PASS/WARN/FAIL with an explicit fix for each issue. Exit code 0 only if there are zero FAILs. |
-| `xetra run --config ...` | Runs one full HUNT→HARDEN→RESPOND→RECOVER→ATTEST cycle (optionally one stratum only — the dashboard's per-stratum retest button uses this). |
-| `xetra status --config ...` | What's true right now, in one screen: last cycle time + staleness, mode (mock/live per category), open-gap count. |
-| `xetra serve --config ...` | Starts the dashboard at `http://localhost:8420` — Configuration panel (where everything is set, at a glance), per-stratum drill-down with a "re-test this stratum" button, trend chart, full findings table. Pass `--config` to enable the "Run cycle now" / per-stratum buttons. |
-| `xetra list-ttps --config ...` | Lists every technique XETRA validates. |
+| `xetra start` | Create config if needed and open the dashboard. **Most people only need this.** |
+| `xetra run [--strata service,system]` | Run from the terminal. |
+| `xetra status` | All 7 strata on one screen. |
+| `xetra doctor` | Pre-flight checks, each with its fix. |
+| `xetra init` | Terminal setup wizard (the Setup tab does the same). |
+| `xetra list-ttps` | Every technique XETRA validates (134 across all 7 strata). |
 
----
+In Docker, set `XETRA_SCHEDULE_MINUTES` (default 5) to change the automatic cycle; changing the schedule in the dashboard always wins.
 
-## What this is — and isn't
+## Honest limits
 
-**Is:**
-- A real, working Python orchestrator: five agents, pluggable adapters, a TTP library, a CLI, tests, CI.
-- A control-validation layer that sits *on top of* licensed security products you already own or can license (BAS, SIEM, SOAR, EDR), asking them to do what they're built and supported to do.
-- A certification-evidence generator: every run produces a JSON package cross-walked to SOC 2, ISO 27001, PCI DSS v4.0, NIST CSF 2.0, FedRAMP, NYDFS §500, and NY MTL (`docs/CONTROL_MAPPING.md`).
+* **XETRA validates; it does not prevent.** It tells you whether your controls *catch* the techniques and keeps the proof. It does not stop an attacker by itself, so it is not a literal "antidote" — it is how you find out, continuously, whether you have one.
+* **Simulated mode is a demo, not evidence.** Results are generated, and every package says `mock_mode: true`.
+* **Vendor adapters are written to each vendor's public API documentation but have not been exercised against live tenants** (only the Anthropic and OpenAI model-list checks, Splunk, Elastic, CrowdStrike and Defender "whoami" checks are implemented as real calls, and those too need your credentials to confirm). Test each in Setup and run one stratum before trusting a full cycle.
+* The ARTEX technique list is taken from the advisory text supplied with this project; check it against the original FLASH.
+* No exploitation logic exists in this repository. Live adapters only ask a licensed vendor's platform to run *its own* scenario.
 
-**Isn't:**
-- Not a fork, wrapper, or port of ARTEX. No exploitation logic exists anywhere in this codebase — not in the mock adapters (deterministic simulated outcomes), not in the "live" adapters (which only call each vendor's own documented, licensed scenario/test API; the vendor's platform owns the actual technique implementation).
-- Not something that runs against a target without configuration. Every live adapter raises a clear `RuntimeError` naming exactly what's missing rather than silently doing anything.
-- Not a replacement for a licensed BAS/SIEM/SOAR/EDR platform — it's the glue that runs them on a schedule and turns their output into one coherent, auditable cycle.
-
----
-
-## Architecture
-
-See `docs/ARCHITECTURE.md` for the full diagram and design rationale. Summary:
-
-| Agent | Inverse of (ARTEX) | What it does |
-|---|---|---|
-| **HUNT** | recon + exploit agents | Runs each ATT&CK-mapped technique via your licensed BAS platform; checks your SIEM for an alert |
-| **HARDEN** | persistence + privesc agents | Turns every gap into a `RemediationItem`, flagged for human approval |
-| **RESPOND** | lateral movement + C2 agents | Triggers a named SOAR playbook (isolate/revoke/rotate/block) |
-| **RECOVER** | collection + exfil agents | Re-runs HUNT on the remediated technique to confirm the gap closed |
-| **ATTEST** | (ARTEX leaves forensic noise; XETRA leaves evidence by design) | Packages the full cycle as certification-ready JSON |
+## Layout
 
 ```
 xetra/
-├── xetra/
-│   ├── orchestrator.py        # wires config -> adapters -> agents, runs one cycle
-│   ├── cli.py                 # `xetra run`, `xetra list-ttps`, `xetra serve`
-│   ├── server.py              # dashboard web server (stdlib only)
-│   ├── agents/                # hunt.py, harden.py, respond.py, recover.py, attest.py
-│   ├── adapters/
-│   │   ├── bas/      # base, mock, attackiq, pentera, safebreach, cymulate
-│   │   ├── siem/     # base, mock, splunk, sentinel, elastic
-│   │   ├── soar/     # base, mock, tines, xsoar
-│   │   └── edr/      # base, mock, crowdstrike, defender
-│   └── ttp_library/
-│       ├── artex_ttps.yaml         # core FBI-advisory ARTEX kill chain
-│       └── attack_enterprise.yaml  # extended full-ATT&CK-Enterprise coverage
-├── detections/           # Sigma rules (open standard)
-├── dashboard/index.html  # offline evidence visualizer
-├── docker/               # Dockerfile + compose, one-command demo
-├── config/config.example.yaml
-├── docs/ (ARCHITECTURE, CONTROL_MAPPING, GOING_LIVE) + mkdocs.yml
-├── tests/
-└── .github/workflows/ci.yml
+├── xetra/core/        store (memory), engine (run/stop/pause/schedule), connect (tests), settings, views
+├── xetra/agents/      hunt · harden · respond · recover · attest
+├── xetra/adapters/    bas · siem · soar · edr · llm   (each: mock + live vendors)
+├── xetra/providers.py one table that drives Setup, doctor, wizard and docs
+├── xetra/server.py    dashboard + JSON API (stdlib only)
+├── dashboard/         the single-file UI (no CDN, works offline)
+├── detections/        Sigma rules      ├── docs/    guides, control mapping
+└── tests/             64 tests: nothing is lost, stop works, secrets stay secret, Docker files are consistent
 ```
 
----
-
-## The TTP Library
-
-`xetra/ttp_library/artex_ttps.yaml` encodes every phase of the ARTEX kill chain from the FBI advisory as MITRE ATT&CK technique IDs — the same identifiers every major BAS platform already uses to select its own pre-built, safe emulation module. Nothing beyond the ID, stratum, and expected control lives in this file. Run `python -m xetra.cli list-ttps` to see it.
-
-| ARTEX phase | XETRA TTP entry | Stratum |
-|---|---|---|
-| Reconnaissance | `artex-recon-01` | infra_network |
-| Initial Access | `artex-access-01` | service |
-| Persistence | `artex-persist-01` | system |
-| Privilege Escalation | `artex-privesc-01` | system |
-| Internal Recon (incl. EDR-gap mapping) | `artex-discovery-01` | system |
-| Lateral Movement | `artex-lateral-01` | system |
-| Collection / Exfil Prep | `artex-collect-01` | service |
-| Command and Control | `artex-c2-01` | protocol |
-| LLM-API egress (ARTEX's signature fingerprint) | `artex-llm-egress-01` | infra_network |
-
-The **program-level signature exercise**: replay this entire table as one BAS campaign, quarterly. Success = every phase caught before privilege escalation completes. This is the literal, direct antidote test.
-
-A second file, `xetra/ttp_library/attack_enterprise.yaml`, extends coverage beyond the ARTEX-specific chain to the full MITRE ATT&CK Enterprise tactic set (Reconnaissance through Impact, 15 additional entries / ~55 additional technique IDs) — loaded by default alongside the core library (`include_extended_attack_library: true` in config). Run `python -m xetra.cli list-ttps` to see the combined total.
-
----
-
-## Detection Content
-
-`detections/` ships open-standard [Sigma](https://github.com/SigmaHQ/sigma) rules for five representative techniques (Kerberoasting, LSASS credential dumping, ransomware-style mass encryption, EDR/logging tamper attempts, and ARTEX's own LLM-API-egress fingerprint). Convert to your SIEM's native query language with `sigma-cli` and drop the result into the relevant adapter's `query_map`.
-
-## Dashboard
-
-`dashboard/index.html` is a self-contained, offline visual dashboard — drag an ATTEST evidence JSON file onto it and it renders summary cards, a per-stratum outcome chart, and the full findings table, entirely client-side (no server, no upload, no dependency beyond one CDN-hosted charting library).
-
-## Docker
-
-```
-./up      # build + start → dashboard at http://localhost:8420
-./down    # stop (evidence volume persists)
-./clean   # stop + remove containers, image, evidence volume, local config
-```
-
-No `docker` typing required. `./up` starts two services sharing one evidence volume: `xetra-cycle` runs a mock HUNT→HARDEN→RESPOND→RECOVER→ATTEST cycle every 5 minutes, and `xetra-web` serves the dashboard — open **http://localhost:8420** and it auto-loads the latest cycle (polls every 10s, no manual file drag needed once the server's running; dragging a file in still works too, e.g. for a cycle you ran outside Docker). See `docker/README.md`.
-
-## LLM Integration (optional, advisory-only)
-
-XETRA can optionally use an LLM — Claude or GPT — to draft a plain-English executive summary of each cycle and draft (not finalize) remediation-ticket text. **The hard boundary: LLM output can only ever produce text for a human to review; it has no code path into HUNT, HARDEN, RESPOND, or RECOVER and cannot trigger any action.** This is the deliberate structural inverse of ARTEX's own LLM usage, where the LLM *is* the decision-maker for the next attack step.
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY for GPT
-```
-```yaml
-# config.yaml
-llm:
-  provider: anthropic   # none (default) | mock | anthropic | openai
-  options:
-    model: "<current model ID from the provider's docs>"
-```
-
-Full detail, the exact prompts sent, and the review requirement before any LLM-drafted text is used: `docs/LLM_INTEGRATION.md`.
-
-## Docs Site
-
-`mkdocs.yml` + `docs/` form a ready-to-publish [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) site (`pip install mkdocs-material && mkdocs serve`).
-
----
-
-## Going Live
-
-Each stratum can go live independently. None of this is required to use XETRA in mock mode.
-
-Five vendors per BAS/SIEM/SOAR/EDR category are wired in today — full detail and env-var names in `docs/GOING_LIVE.md`:
-
-| Category | Providers wired in |
-|---|---|
-| BAS | AttackIQ, Pentera, SafeBreach, Cymulate |
-| SIEM | Splunk, Microsoft Sentinel, Elastic |
-| SOAR | Tines, Cortex XSOAR |
-| EDR | CrowdStrike Falcon, Microsoft Defender for Endpoint |
-
-**Before flipping anything to live:** fill in `scope.authorized_by` and `scope.targets` in `config.yaml` with your actual signed Rules of Engagement. BAS platforms enforce their own authorization model on top of this — XETRA's scope config is passed through to them, not a substitute for it.
-
-Pluggable adapter interfaces (`adapters/*/base.py`) mean any additional vendor can be added as a sibling to the existing stubs without touching the orchestrator or agents — contributions welcome.
-
----
-
-## Testing
-
-```
-pip install -r requirements-dev.txt
-pytest tests/ -v
-```
-
-All tests run against mock adapters — no credentials, no network calls, no risk. CI (`.github/workflows/ci.yml`) runs this plus a full end-to-end CLI smoke test on every push, across Python 3.10–3.12.
-
----
-
-## Certification Evidence
-
-See `docs/CONTROL_MAPPING.md`. **Every evidence package has a top-level `mock_mode: true/false` field — check it before using anything downstream of it.** `mock_mode: true` means at least one adapter category (BAS/SIEM/SOAR/EDR) was simulated; the package is useful for testing the pipeline itself, never for an auditor. `xetra doctor` and the dashboard's mode banner both surface this before you can miss it.
-
-Every ATTEST output is a JSON package: `mock_mode`, `adapter_modes` (per-category mock/live), findings, remediations, responses, recoveries, and a summary block — designed to be the machine-generated input to your audit evidence package, not a replacement for auditor review or management sign-off (consequential decisions stay with named humans throughout the loop — see `agents/harden.py` and `agents/attest.py` docstrings).
-
----
-
-## Why "XETRA"
-
-Not a backronym stretched to fit — reverse the five letters of ARTEX and you get XETRA. The name *is* the thesis: everything ARTEX automates toward compromise, XETRA automates toward proof that compromise doesn't land.
-
-## License
-
-MIT — see `LICENSE`.
-
-## Responsible Use
-
-This project automates licensed, authorized security-validation tooling. It does not contain, depend on, or interoperate with ARTEX or any unlicensed offensive framework. Contributions that add exploitation logic rather than orchestration of a licensed vendor's own API will not be accepted.
+MIT licensed. See `docs/` for the architecture, control mapping (SOC 2 · ISO 27001 · PCI DSS 4.0 · NIST CSF 2.0 · FedRAMP · NYDFS 500 · NY MTL) and LLM boundary.

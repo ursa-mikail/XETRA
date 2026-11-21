@@ -10,4 +10,5 @@ nav:
   - Architecture: ARCHITECTURE.md
   - Control Mapping: CONTROL_MAPPING.md
   - Going Live: GOING_LIVE.md
+  - AI summaries: LLM_INTEGRATION.md
 docs_dir: docs

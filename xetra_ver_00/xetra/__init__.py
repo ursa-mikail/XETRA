@@ -14,4 +14,4 @@ on. See README.md and config/config.example.yaml before running anything
 in `mode: live`.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

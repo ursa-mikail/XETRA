@@ -1,78 +1,81 @@
 """
-XETRA command-line entry point.
+XETRA command line.
 
-Usage:
-    python -m xetra.cli run --config config/config.yaml --label weekly-run
-    python -m xetra.cli list-ttps --config config/config.yaml
+  xetra start                 ← the one command most people need. Sets itself up and opens the dashboard.
+  xetra run [--strata a,b]    run a cycle from the terminal
+  xetra status                what's true right now, all 7 strata, one screen
+  xetra doctor                pre-flight checks with fixes
+  xetra init                  terminal setup wizard (the dashboard's Setup tab does the same)
+  xetra list-ttps             every technique XETRA validates
 """
 from __future__ import annotations
 import argparse
 import logging
+import sys
+import threading
+import webbrowser
 
-from .orchestrator import XetraOrchestrator, load_ttp_library
-from pathlib import Path
+from .orchestrator import XetraOrchestrator, load_all_ttps
+from .providers import STRATUM_IDS
 
 
-def main():
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(prog="xetra", description="XETRA — the structural inverse of ARTEX")
     sub = parser.add_subparsers(dest="command", required=True)
+    cfg_default = "config/config.yaml"
 
-    run_p = sub.add_parser("run", help="Run one full HUNT->HARDEN->RESPOND->RECOVER->ATTEST cycle")
-    run_p.add_argument("--config", default="config/config.yaml")
-    run_p.add_argument("--label", default="manual")
-    run_p.add_argument("--verbose", action="store_true")
+    st = sub.add_parser("start", help="Create config if needed and open the dashboard (recommended)")
+    st.add_argument("--config", default=cfg_default); st.add_argument("--port", type=int, default=8420)
+    st.add_argument("--host", default="127.0.0.1"); st.add_argument("--no-browser", action="store_true")
 
-    list_p = sub.add_parser("list-ttps", help="List the loaded TTP library")
-    list_p.add_argument("--config", default="config/config.yaml")
+    sv = sub.add_parser("serve", help="Run the dashboard server")
+    sv.add_argument("--config", default=cfg_default); sv.add_argument("--port", type=int, default=8420)
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--evidence-dir", default=None)
 
-    serve_p = sub.add_parser("serve", help="Run the dashboard web server (see xetra.server)")
-    serve_p.add_argument("--port", type=int, default=8420)
-    serve_p.add_argument("--evidence-dir", default="evidence_output")
-    serve_p.add_argument("--config", default=None,
-                          help="If set, enables the dashboard's 'Run cycle now' trigger.")
+    r = sub.add_parser("run", help="Run one cycle")
+    r.add_argument("--config", default=cfg_default); r.add_argument("--label", default="cli")
+    r.add_argument("--strata", default="", help=f"Comma list. Any of: {', '.join(STRATUM_IDS)}. Default: all.")
+    r.add_argument("--verbose", action="store_true")
 
-    doctor_p = sub.add_parser("doctor", help="Pre-flight validation — run this before `run` or `serve`")
-    doctor_p.add_argument("--config", default="config/config.yaml")
+    for name, helptext in (("status", "Current state of all 7 strata"), ("doctor", "Pre-flight checks"),
+                           ("list-ttps", "List every technique")):
+        p = sub.add_parser(name, help=helptext); p.add_argument("--config", default=cfg_default)
+    i = sub.add_parser("init", help="Terminal setup wizard")
+    i.add_argument("--config", default=cfg_default); i.add_argument("--non-interactive", action="store_true")
 
-    init_p = sub.add_parser("init", help="Guided setup wizard — writes config.yaml step by step")
-    init_p.add_argument("--config", default="config/config.yaml")
-    init_p.add_argument("--non-interactive", action="store_true",
-                         help="Write an all-mock config with no prompts (for scripting/CI)")
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.DEBUG if getattr(args, "verbose", False) else logging.WARNING,
+                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    status_p = sub.add_parser("status", help="Current state at a glance: last cycle, mode, open gaps")
-    status_p.add_argument("--config", default="config/config.yaml")
-
-    args = parser.parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if getattr(args, "verbose", False) else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
-    if args.command == "run":
-        orch = XetraOrchestrator(args.config)
-        out_path = orch.run_cycle(cycle_label=args.label)
-        print(f"\nEvidence package written to: {out_path}\n")
-    elif args.command == "list-ttps":
-        lib_dir = Path(__file__).parent / "ttp_library"
-        all_ttps = load_ttp_library(str(lib_dir / "artex_ttps.yaml"))
-        all_ttps += load_ttp_library(str(lib_dir / "attack_enterprise.yaml"))
-        total_ids = sum(len(t["attack_ids"]) for t in all_ttps)
-        for t in all_ttps:
-            print(f"{t['id']:<22} [{t['stratum']:<14}] {', '.join(t['attack_ids'])}")
-        print(f"\n{len(all_ttps)} TTP entries, {total_ids} ATT&CK technique IDs total.")
-    elif args.command == "serve":
+    if args.command in ("start", "serve"):
         from . import server
-        import sys
-        argv = ["xetra-server", "--port", str(args.port), "--evidence-dir", args.evidence_dir]
-        if args.config:
-            argv += ["--config", args.config]
-        sys.argv = argv
-        server.main()
+        sargs = ["--config", args.config, "--port", str(args.port), "--host", args.host]
+        if getattr(args, "evidence_dir", None):
+            sargs += ["--evidence-dir", args.evidence_dir]
+        if args.command == "start" and not args.no_browser:
+            threading.Timer(1.2, lambda: webbrowser.open(f"http://localhost:{args.port}")).start()
+        server.main(sargs)
+    elif args.command == "run":
+        strata = [s.strip() for s in args.strata.split(",") if s.strip()] or None
+        orch = XetraOrchestrator(args.config)
+        done = {"n": 0}
+        def prog(stage, payload):
+            if stage == "stage" and payload["state"] == "running":
+                print(f"  {payload['name'].upper():<8} …", flush=True)
+            if stage == "technique" and payload["i"] % 25 == 0:
+                print(f"  tested {payload['i']}/{payload['n']}", flush=True)
+        out = orch.run_cycle(cycle_label=args.label, strata=strata, progress=prog, trigger="cli")
+        print(f"\nDone. Evidence package: {out}\nSee all strata: xetra status --config {args.config}\n")
+    elif args.command == "list-ttps":
+        from .core.settings import load_config_file
+        all_ttps = load_all_ttps(load_config_file(args.config).get("include_extended_attack_library", True))
+        for t in all_ttps:
+            print(f"{t['id']:<22} [{t['stratum']:<13}] {', '.join(t['attack_ids'])}")
+        print(f"\n{len(all_ttps)} entries, {sum(len(t['attack_ids']) for t in all_ttps)} ATT&CK technique IDs.")
     elif args.command == "doctor":
-        from .doctor import main as doctor_main
-        import sys
-        sys.argv = ["xetra-doctor", args.config]
-        doctor_main()
+        from .doctor import main as m
+        sys.argv = ["xetra-doctor", args.config]; m()
     elif args.command == "init":
         from .init_wizard import run_wizard
         run_wizard(args.config, non_interactive=args.non_interactive)

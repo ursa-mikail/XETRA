@@ -1,6 +1,6 @@
 [project]
 name = "xetra"
-version = "0.1.0"
+version = "0.2.0"
 description = "XETRA — the structural inverse of ARTEX. Continuous, evidence-generating control validation across 7 strata."
 requires-python = ">=3.10"
 dependencies = ["PyYAML>=6.0", "requests>=2.31"]

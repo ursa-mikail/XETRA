@@ -1,425 +1,704 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>XETRA — Control Validation Dashboard</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<title>XETRA</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f2a3d'/%3E%3Crect x='5' y='6' width='22' height='3.5' fill='%23e8eef2'/%3E%3Crect x='5' y='11.5' width='22' height='3.5' fill='%2349b8a8'/%3E%3Crect x='5' y='17' width='22' height='3.5' fill='%23e8eef2'/%3E%3Crect x='5' y='22.5' width='14' height='3.5' fill='%23e5533d'/%3E%3C/svg%3E">
 <style>
-  :root {
-    --bg: #0b0d12; --panel: #141821; --border: #262c3a; --text: #e6e9f0;
-    --muted: #8b93a7; --accent: #4fd1c5; --danger: #f56565; --warn: #f6ad55; --ok: #48bb78;
-    color-scheme: dark;
-  }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-      --bg: #f7f8fa; --panel: #ffffff; --border: #e2e5eb; --text: #1a202c; --muted: #5a6577;
-    }
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .wrap { max-width: 1140px; margin: 0 auto; padding: 24px 20px 60px; }
-  h1 { font-size: 1.5rem; margin: 0 0 2px; }
-  h3 { font-size: 1.05rem; margin: 0 0 10px; }
-  .sub { color: var(--muted); margin: 2px 0 0; font-size: 0.9rem; }
+:root{
+  --paper:#eef1f3; --surface:#ffffff; --sunk:#e4e9ec; --line:#d3dade; --line-soft:#e3e8eb;
+  --ink:#0f2a3d; --ink-2:#4a6071; --ink-3:#7a8d9b;
+  --caught:#1f9d8c; --caught-bg:#dff3ef;
+  --gap:#d9432b;   --gap-bg:#fbe5e0;
+  --unk:#c98a12;   --unk-bg:#faefd3;
+  --none:#9fb0bb;
+  --brand:#0f2a3d; --brand-ink:#e8eef2; --focus:#2a6fdb;
+  --sim:#b7570a; --sim-bg:#fdecd6;
+  --radius:10px; --radius-sm:6px;
+  --font:"Avenir Next","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+}
+:root[data-theme=dark]{
+  --paper:#0b1822; --surface:#122533; --sunk:#0d1d29; --line:#243a4b; --line-soft:#1b3040;
+  --ink:#e6eef3; --ink-2:#a3b6c3; --ink-3:#70879a;
+  --caught:#3cc3b0; --caught-bg:#12363a; --gap:#ff6a50; --gap-bg:#3d1f1f; --unk:#e4a83a; --unk-bg:#3a2e14;
+  --none:#4d6678; --brand:#06111a; --brand-ink:#e6eef3; --focus:#6aa2ff; --sim:#f0a050; --sim-bg:#3a2a14;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+h1,h2,h3{margin:0;line-height:1.2}
+h1{font-size:22px;font-weight:650;letter-spacing:-.01em}
+h2{font-size:16px;font-weight:650}
+h3{font-size:13px;font-weight:650}
+p{margin:0}
+.muted{color:var(--ink-2)} .faint{color:var(--ink-3)}
+.mono{font-family:var(--mono);font-size:12px}
+.num{font-variant-numeric:tabular-nums}
 
-  .banner { border-radius: 10px; padding: 14px 18px; margin: 14px 0; font-weight: 600; font-size: 0.95rem; }
-  .banner.mock { background: rgba(246,173,85,.15); border: 1.5px solid var(--warn); color: var(--warn); }
-  .banner.live { background: rgba(72,187,120,.15); border: 1.5px solid var(--ok); color: var(--ok); }
-  .banner.stale { background: rgba(245,101,101,.15); border: 1.5px solid var(--danger); color: var(--danger); }
-  .banner small { font-weight: 400; display: block; margin-top: 2px; opacity: 0.9; }
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:232px 1fr;grid-template-rows:auto 1fr;height:100vh}
+.bar{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--brand);color:var(--brand-ink);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.14em;font-size:15px}
+.brand svg{display:block}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.pill.sim{background:var(--sim-bg);color:var(--sim)}
+.pill.live{background:var(--caught-bg);color:var(--caught)}
+.bar .pill.sim{background:#3d2a12;color:#ffc27a} .bar .pill.live{background:#10403b;color:#7fe3d3}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.dot.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+.bar .state{display:flex;flex-direction:column;line-height:1.25;min-width:190px}
+.bar .state b{font-size:13px;font-weight:650} .bar .state span{font-size:12px;opacity:.72}
+.bar .spacer{flex:1}
+.bar .progress{flex:1;min-width:150px;max-width:340px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);padding:7px 13px;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:var(--ink-3)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--caught);border-color:var(--caught);color:#fff}
+:root[data-theme=dark] .btn.primary{color:#06111a}
+.btn.danger{background:var(--gap);border-color:var(--gap);color:#fff}
+.btn.ghost{background:transparent}
+.btn.small{padding:4px 9px;font-size:12px}
+.bar .btn{background:transparent;border-color:#3a566b;color:var(--brand-ink)}
+.bar .btn.primary{background:var(--caught);border-color:var(--caught);color:#fff}
+.bar .btn.danger{background:var(--gap);border-color:var(--gap)}
+.menu{position:relative}
+.menu-pop{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);padding:10px;width:290px;box-shadow:0 12px 32px rgba(8,22,32,.25);z-index:30}
+.menu-pop label{display:flex;gap:9px;align-items:center;padding:5px 4px;cursor:pointer;border-radius:5px}
+.menu-pop label:hover{background:var(--sunk)}
+.menu-pop hr{border:0;border-top:1px solid var(--line);margin:8px 0}
 
-  .toprow { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
-  button.primary { background: var(--accent); color: #0b0d12; border: none; border-radius: 8px; padding: 9px 16px; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 0.85rem; }
-  button.primary:disabled { opacity: 0.5; cursor: wait; }
-  button.small { background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; }
-  button.small:hover { border-color: var(--accent); }
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:14px 10px;overflow:auto}
+.rail .grp{font-size:12px;color:var(--ink-3);padding:12px 10px 5px;font-weight:600}
+.rail button.nav{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--ink-2);font-weight:550}
+.rail button.nav:hover{background:var(--sunk)}
+.rail button.nav[aria-current=page]{background:var(--ink);color:var(--paper)}
+:root[data-theme=dark] .rail button.nav[aria-current=page]{background:#e6eef3;color:#0b1822}
+.rail .n{font-family:var(--mono);font-size:11px;opacity:.6;width:12px}
+.rail .tag{margin-left:auto;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;font-variant-numeric:tabular-nums}
+.tag.gap{background:var(--gap-bg);color:var(--gap)} .tag.ok{background:var(--caught-bg);color:var(--caught)} .tag.unk{background:var(--unk-bg);color:var(--unk)} .tag.none{background:var(--sunk);color:var(--ink-3)}
+.rail .sdot{width:9px;height:9px;border-radius:2px;flex:none}
+.sdot.healthy{background:var(--caught)} .sdot.gaps{background:var(--gap)} .sdot.not_tested{background:var(--unk)} .sdot.partial{background:repeating-linear-gradient(45deg,var(--caught) 0 2px,var(--sunk) 2px 4px)} .sdot.never_run{background:transparent;border:1.5px dashed var(--none)}
+.rail .foot{margin-top:18px;padding:10px;font-size:12px;color:var(--ink-3)}
 
-  .section { margin-top: 28px; }
-  .section-head { display: flex; justify-content: space-between; align-items: center; }
+main{overflow:auto;padding:26px 34px 60px}
+.wrap{max-width:1060px;margin:0 auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.page-head p{margin-top:5px;max-width:62ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+.card + .card{margin-top:14px}
+.grid > .card{margin-top:0}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:1fr 1fr}
+@media(max-width:1000px){.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+@media(max-width:820px){.app{grid-template-columns:1fr}.rail{display:none}main{padding:18px}}
 
-  /* Configuration panel — the direct fix for "where do I set the LLM" */
-  .cfggrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-  .cfgcard { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-  .cfgcard.live { border-color: var(--ok); } .cfgcard.mock { border-color: var(--warn); } .cfgcard.missing { border-color: var(--danger); }
-  .cfgcard .cat { font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
-  .cfgcard .prov { font-size: 1.1rem; font-weight: 700; margin: 2px 0 6px; }
-  .cfgcard .detail { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
-  .cfgcard .detail code { background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 4px; font-size: 0.75rem; }
-  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; margin-bottom: 4px; }
-  .tag.live { background: rgba(72,187,120,.2); color: var(--ok); } .tag.mock { background: rgba(246,173,85,.2); color: var(--warn); }
-  .tag.missing { background: rgba(245,101,101,.2); color: var(--danger); }
+/* ---------- next action ---------- */
+.next{display:flex;gap:18px;align-items:center;justify-content:space-between;border-left:5px solid var(--caught);flex-wrap:wrap}
+.next.warn{border-left-color:var(--gap)} .next.info{border-left-color:var(--focus)}
+.next h2{font-size:18px}
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
-  .card .num { font-size: 1.8rem; font-weight: 700; }
-  .card .label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: .04em; }
-  .ok { color: var(--ok); } .warn { color: var(--warn); } .danger { color: var(--danger); }
+/* ---------- stat ---------- */
+.stat b{display:block;font-size:30px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:12.5px;color:var(--ink-2)}
+.stat.gap b{color:var(--gap)} .stat.ok b{color:var(--caught)} .stat.unk b{color:var(--unk)}
 
-  /* Per-stratum drill-down */
-  .stratum-block { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
-  .stratum-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; }
-  .stratum-head:hover { background: rgba(255,255,255,.03); }
-  .stratum-name { font-weight: 600; width: 130px; flex-shrink: 0; }
-  .barbg { background: var(--border); border-radius: 6px; height: 16px; overflow: hidden; display: flex; flex: 1; }
-  .barseg.blocked { background: var(--ok); } .barseg.detected_only { background: var(--warn); }
-  .barseg.undetected, .barseg.error { background: var(--danger); }
-  .stratum-pct { width: 60px; text-align: right; font-size: 0.85rem; flex-shrink: 0; }
-  .stratum-caret { width: 16px; text-align: center; color: var(--muted); flex-shrink: 0; }
-  .stratum-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
-  .stratum-body.open { display: block; }
-  .stratum-body h4 { font-size: 0.82rem; color: var(--muted); margin: 10px 0 6px; text-transform: uppercase; }
-  .remediation-item { font-size: 0.82rem; padding: 6px 0; border-bottom: 1px solid var(--border); }
-  .remediation-item .tech { font-weight: 600; } .remediation-item .action { color: var(--muted); }
+/* ---------- THE strata column: every technique is one cell ---------- */
+.strata-col{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.band{display:grid;grid-template-columns:190px 1fr 210px;gap:14px;align-items:center;padding:13px 16px;border:0;background:none;text-align:left;cursor:pointer;width:100%;border-top:1px solid var(--line-soft)}
+.band:first-child{border-top:0}
+.band:hover{background:var(--sunk)}
+.band .nm{display:flex;gap:9px;align-items:baseline}
+.band .nm .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.band .nm b{font-weight:650}
+.band .cnt{text-align:right;font-size:12.5px;color:var(--ink-2)}
+.band .cnt b{color:var(--ink);font-variant-numeric:tabular-nums}
+.cells{display:flex;flex-wrap:wrap;gap:2px}
+.cell{width:9px;height:18px;border-radius:2px;background:var(--none);opacity:.28;flex:none}
+.cell.caught{background:var(--caught);opacity:1}
+.cell.gap{background:repeating-linear-gradient(135deg,var(--gap) 0 2px,#f19a8b 2px 4px);opacity:1}
+.cell.not_tested{background:radial-gradient(circle,var(--unk) 1.6px,transparent 1.8px) 0 0/5px 5px,var(--unk-bg);opacity:1;outline:1px solid var(--unk);outline-offset:-1px}
+.cell.untested{background:transparent;border:1.5px dashed var(--none);opacity:.8}
+.cell.running{animation:pulse .6s ease-in-out infinite;background:var(--focus);opacity:1}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:12px}
+.legend i{display:inline-block;width:11px;height:16px;border-radius:2px;vertical-align:-3px;margin-right:6px}
 
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; overflow-x: auto; display: block; }
-  th, td { padding: 7px 9px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.85rem; }
-  th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--bg); }
-  .pill { padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
-  .pill.blocked { background: rgba(72,187,120,.15); color: var(--ok); }
-  .pill.detected_only { background: rgba(246,173,85,.15); color: var(--warn); }
-  .pill.undetected, .pill.error { background: rgba(245,101,101,.15); color: var(--danger); }
+/* ---------- stage stepper ---------- */
+.stages{display:flex;gap:0;margin:2px 0 14px}
+.stage{flex:1;padding:8px 10px;border-top:3px solid var(--line);font-size:12.5px;color:var(--ink-3);font-weight:600}
+.stage.running{border-color:var(--focus);color:var(--ink)} .stage.done{border-color:var(--caught);color:var(--ink-2)}
+.stage small{display:block;font-weight:500;color:var(--ink-3)}
+.meter{height:7px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.meter>i{display:block;height:100%;background:var(--caught);transition:width .3s}
+.bar .meter{background:#27475c}
+.log{background:var(--sunk);border-radius:var(--radius-sm);padding:10px 12px;max-height:190px;overflow:auto;font-family:var(--mono);font-size:12px;line-height:1.7}
+.log div span{color:var(--ink-3);margin-right:9px}
 
-  .findings-wrap { max-height: 420px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
-  canvas { max-height: 240px; }
-  .dropzone { border: 1.5px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); margin: 10px 0; cursor: pointer; font-size: 0.85rem; }
-  input[type=file] { display: none; }
-  .filterbar { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
-  .filterbar button.active { border-color: var(--accent); color: var(--accent); }
-  .empty { color: var(--muted); font-style: italic; text-align: center; padding: 24px; }
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;color:var(--ink-3);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.badge.caught{background:var(--caught-bg);color:var(--caught)} .badge.gap{background:var(--gap-bg);color:var(--gap)}
+.badge.not_tested{background:var(--unk-bg);color:var(--unk)} .badge.untested,.badge.never_run{background:var(--sunk);color:var(--ink-3)}
+.badge.open{background:var(--gap-bg);color:var(--gap)} .badge.approved{background:var(--unk-bg);color:var(--unk)}
+.badge.verified{background:var(--caught-bg);color:var(--caught)} .badge.risk_accepted{background:var(--sunk);color:var(--ink-2)}
+.badge.simulated{background:var(--sim-bg);color:var(--sim)} .badge.verified-c{background:var(--caught-bg);color:var(--caught)}
+.badge.failed,.badge.rejected{background:var(--gap-bg);color:var(--gap)} .badge.untested-c{background:var(--unk-bg);color:var(--unk)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tabs button{border:0;background:none;padding:8px 13px;cursor:pointer;color:var(--ink-2);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected=true]{color:var(--ink);border-color:var(--ink)}
+
+/* ---------- forms / setup ---------- */
+.step{display:grid;grid-template-columns:34px 1fr;gap:14px}
+.step + .step{margin-top:14px}
+.step .no{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-weight:700;font-size:13px;margin-top:14px}
+.step .no.done{background:var(--caught);color:#fff}
+.choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:12px 0}
+.choice{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 12px;cursor:pointer;background:var(--surface)}
+.choice:hover{border-color:var(--ink-3)}
+.choice[aria-checked=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.choice b{display:block;font-size:13px}.choice span{font-size:12px;color:var(--ink-2)}
+.field{margin:10px 0}
+.field label{display:block;font-weight:600;font-size:13px;margin-bottom:4px}
+.field .help{font-size:12px;color:var(--ink-3);margin-top:3px}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
+input:focus,select:focus,textarea:focus{border-color:var(--focus)}
+.input-row{display:flex;gap:8px}
+.result{margin-top:12px;padding:11px 14px;border-radius:var(--radius-sm);border:1px solid var(--line);font-size:13px}
+.result.ok{background:var(--caught-bg);border-color:var(--caught)} .result.bad{background:var(--gap-bg);border-color:var(--gap)} .result.warn{background:var(--unk-bg);border-color:var(--unk)}
+.result b{display:block;margin-bottom:2px}
+.switch{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line-soft)}
+.switch:last-child{border-bottom:0}
+.switch .t{flex:1}.switch .t p{color:var(--ink-2);font-size:13px;margin-top:2px;max-width:60ch}
+.tog{width:44px;height:25px;border-radius:99px;background:var(--none);border:0;position:relative;cursor:pointer;flex:none;transition:background .15s}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:transform .15s}
+.tog[aria-checked=true]{background:var(--caught)} .tog[aria-checked=true]::after{transform:translateX(19px)}
+.tog.risky[aria-checked=true]{background:var(--gap)}
+.callout{padding:12px 15px;border-radius:var(--radius-sm);background:var(--sim-bg);color:var(--ink);border:1px solid var(--sim);font-size:13px}
+.callout b{color:var(--sim)}
+.callout.calm{background:var(--sunk);border-color:var(--line)}.callout.calm b{color:var(--ink)}
+.empty{text-align:center;padding:38px 20px;color:var(--ink-2)}
+.empty h3{font-size:15px;margin-bottom:6px;color:var(--ink)}
+
+/* ---------- drawer / modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(8,22,32,.5);z-index:40;display:flex;justify-content:flex-end}
+.drawer{width:min(560px,100%);background:var(--surface);height:100%;overflow:auto;padding:22px 24px;box-shadow:-12px 0 40px rgba(0,0,0,.3)}
+.modal{margin:auto;background:var(--surface);border-radius:var(--radius);padding:22px 24px;width:min(460px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.scrim.center{justify-content:center;align-items:center}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13px;margin:12px 0}
+.kv dt{color:var(--ink-3)} .kv dd{margin:0;word-break:break-word}
+pre.json{background:var(--sunk);padding:12px;border-radius:var(--radius-sm);overflow:auto;font-size:11.5px;max-height:260px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;z-index:60;font-weight:600;max-width:90vw}
+.toast.err{background:var(--gap);color:#fff}
+.spark{display:block}
+.sr{position:absolute;left:-9999px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.banner{border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-weight:600}
+.banner.stale{background:var(--gap-bg);border:1.5px solid var(--gap);color:var(--gap)}
+.banner small{display:block;font-weight:400;color:var(--ink);opacity:.85}
+.dropzone{border:2px dashed var(--line);border-radius:var(--radius);padding:22px;text-align:center;color:var(--ink-2);cursor:pointer}
+.dropzone.over{border-color:var(--focus);background:var(--sunk)}
+.stalemark{color:var(--gap);font-weight:650}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="toprow">
-    <div>
-      <h1>XETRA</h1>
-      <p class="sub">Control validation — configuration, status, and per-stratum control in one place.</p>
-    </div>
-    <button class="primary" id="triggerBtn" style="display:none;">Run full cycle now</button>
-  </div>
-
-  <div id="modeBanner"></div>
-  <div id="staleBanner"></div>
-
-  <!-- Configuration is ALWAYS visible, with or without any cycle data —
-       this is the answer to "where do I set the LLM/BAS/etc.", and a
-       brand-new install with zero cycles run is exactly when you need
-       it most. Never nest this inside a data-gated container. -->
-  <div class="section">
-    <h3>Configuration — where everything is set</h3>
-    <div class="cfggrid" id="cfgGrid">
-      <div class="empty">Loading configuration...</div>
-    </div>
-  </div>
-
-  <div id="mainContent" style="display:none;">
-
-    <div class="section">
-      <h3>Summary</h3>
-      <div class="grid" id="summaryCards"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-head"><h3>Coverage &amp; Control by Stratum</h3></div>
-      <div id="strataBlocks"></div>
-    </div>
-
-    <div class="section">
-      <h3>Trend (last 20 cycles)</h3>
-      <canvas id="trendChart"></canvas>
-    </div>
-
-    <div class="section">
-      <h3>All Findings</h3>
-      <div class="filterbar" id="filterBar">
-        <button class="small active" data-f="all">All</button>
-        <button class="small" data-f="gap">Gaps only</button>
-        <button class="small" data-f="blocked">Blocked</button>
-        <button class="small" data-f="detected_only">Detected only</button>
-        <button class="small" data-f="undetected">Undetected</button>
-      </div>
-      <div class="findings-wrap">
-        <table>
-          <thead><tr><th>Technique</th><th>Stratum</th><th>BAS Outcome</th><th>SIEM Alerted</th><th>Gap?</th></tr></thead>
-          <tbody id="findingsBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <h3>Load a cycle manually</h3>
-    <div class="dropzone" id="dropzone">
-      Drop an evidence JSON file here, or click to choose one. (Not needed if the server found cycles automatically.)
-      <input type="file" id="fileInput" accept=".json">
-    </div>
-  </div>
-
-  <div id="emptyState" class="empty">Checking for a running XETRA server...</div>
+<div class="app">
+  <header class="bar" id="bar" role="banner"></header>
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+  <main id="main" tabindex="-1"></main>
 </div>
+<div id="layer"></div>
 
 <script>
-const STRATA_ORDER = ["infra_network", "service", "system", "protocol", "algorithm", "software", "hardware"];
-const CATEGORY_LABELS = { bas: "BAS (HUNT)", siem: "SIEM (HUNT)", soar: "SOAR (RESPOND)", edr: "EDR (HARDEN/RECOVER)", llm: "LLM (ATTEST, optional)" };
-let chartInstance = null;
-let currentFindings = [];
-let currentRemediations = [];
-let currentFilter = 'all';
-let serverReachable = false;
-let openStrata = new Set();
+"use strict";
+/* =========================================================================
+   XETRA dashboard — plain JS, no libraries, works offline.
+   State flows one way: server → `S` → render(). Nothing is cached client-
+   side except the theme and your name for sign-offs.
+   ========================================================================= */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const S = {ov:null, route:"overview", catalog:null, cfg:null, stratum:{}, fixes:[], runs:[], events:[], doctor:null,
+           draft:{}, tests:{}, poll:null, fixFilter:{status:"open",stratum:""}, evFilter:"", runMenuOpen:false, runPick:new Set(), evTab:"runs"};
+const store = {get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 
-async function pollStatus() {
-  try {
-    const resp = await fetch('/api/status');
-    if (!resp.ok) throw new Error('bad status');
-    const status = await resp.json();
-    serverReachable = true;
-    if (!status.has_data) {
-      document.getElementById('emptyState').textContent =
-        'Server is running but no cycles have landed yet. First cycle lands within a few minutes, or click "Run full cycle now".';
-      document.getElementById('emptyState').style.display = 'block';
-      document.getElementById('mainContent').style.display = 'none';
-    } else {
-      document.getElementById('emptyState').style.display = 'none';
-      renderBanners(status);
-      const histResp = await fetch('/api/history');
-      const hist = (await histResp.json()).history;
-      if (hist.length) renderTrend(hist);
-      const latestFile = hist[hist.length - 1]?.file;
-      if (latestFile) {
-        const fullResp = await fetch('/evidence/' + latestFile);
-        renderFull(await fullResp.json());
-      }
-    }
-    if (status.can_trigger) {
-      const btn = document.getElementById('triggerBtn');
-      btn.style.display = 'inline-block';
-      btn.onclick = () => triggerCycle(null, btn);
-    }
-    // Configuration panel loads independently of cycle data — you should
-    // be able to see where things are set even before any cycle has run.
-    const cfgResp = await fetch('/api/config');
-    renderConfig(await cfgResp.json());
-  } catch (e) {
-    if (!serverReachable) {
-      document.getElementById('emptyState').textContent =
-        'No server detected at this address \u2014 drag a cycle\'s evidence JSON below, or run `python -m xetra.cli serve --config config/config.yaml`.';
-    }
-  }
+async function api(path, body){
+  const opt = body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)};
+  let r;
+  try { r = await fetch(path, opt); }
+  catch(e){ throw new Error("Can't reach XETRA. Is it still running? (start it again with: xetra start)"); }
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok){ const err = new Error(j.error || `Request failed (${r.status})`); err.fix = j.fix; throw err; }
+  return j;
+}
+function toast(msg, err){ const t=document.createElement("div"); t.className="toast"+(err?" err":""); t.setAttribute("role","status"); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), err?6000:2800); }
+const guard = fn => async (...a) => { try { return await fn(...a); } catch(e){ toast(e.message + (e.fix ? " — "+e.fix : ""), true); } };
+
+function ago(iso){ if(!iso) return "never"; const m=(Date.now()-new Date(iso))/60000; if(m<1) return "just now"; if(m<60) return Math.round(m)+" min ago"; if(m<1440) return (m/60).toFixed(1)+" h ago"; return Math.round(m/1440)+" d ago"; }
+function until(iso){ if(!iso) return ""; const m=(new Date(iso)-Date.now())/60000; return m<=0?"any moment":m<60?"in "+Math.ceil(m)+" min":"in "+(m/60).toFixed(1)+" h"; }
+const STATUS_LABEL = {caught:"Caught", gap:"Missed", not_tested:"Couldn't test", untested:"Not run yet", healthy:"All caught", gaps:"Gaps", partial:"Partly tested", never_run:"Not run yet"};
+
+/* ------------------------------------------------------------ data loading */
+async function refresh(){
+  S.ov = await api("/api/overview");
+  const job = S.ov.job;
+  if(job && (job.state==="running"||job.state==="stopping")) startPolling(); 
+  render();
+}
+async function loadRoute(){
+  if(S.route.startsWith("s:")){ const id=S.route.slice(2); S.stratum[id] = await api("/api/stratum/"+id); }
+  if(S.route==="setup"){ S.catalog = S.catalog || await api("/api/catalog"); S.cfg = await api("/api/config"); S.doctor = (await api("/api/doctor")).checks; }
+  if(S.route==="controls"){ S.cfg = await api("/api/config"); }
+  if(S.route==="findings"){ S.findings = (await api("/api/findings")).findings; }
+  if(S.route==="fixes"){ S.fixes = (await api("/api/fixes")).fixes; }
+  if(S.route==="activity"){ S.events = (await api("/api/events?limit=300")).events; S.runs = (await api("/api/runs")).runs; }
+}
+function startPolling(){
+  if(S.poll) return;
+  S.poll = setInterval(async()=>{
+    try{
+      const r = await api("/api/run"); const prev = S.ov.job; S.ov.job = r.job;
+      const finished = r.job && !["running","stopping"].includes(r.job.state);
+      if(finished){ clearInterval(S.poll); S.poll=null; await refresh(); await loadRoute(); render();
+        toast(r.job.state==="completed"?"Run complete — results saved.":r.job.state==="cancelled"?"Run stopped. Nothing from it was saved.":"Run failed: "+r.job.error, r.job.state==="failed"); }
+      else { renderBar(); if(S.route==="overview") renderLive(); }
+    }catch(e){}
+  }, 900);
+}
+async function go(route){
+  S.route = route; location.hash = route; await guard(async()=>{ await loadRoute(); })(); render();
+  $("#main").scrollTop = 0;
 }
 
-function renderConfig(cfg) {
-  const el = document.getElementById('cfgGrid');
-  if (!cfg.available) {
-    el.innerHTML = `<div class="empty">${cfg.message}</div>`;
-    return;
-  }
-  el.innerHTML = Object.entries(cfg.categories).map(([key, c]) => {
-    let tagClass, tagText;
-    if (!c.is_live) { tagClass = 'mock'; tagText = key === 'llm' ? 'DISABLED' : 'MOCK'; }
-    else if (c.configured) { tagClass = 'live'; tagText = 'LIVE \u2713'; }
-    else { tagClass = 'missing'; tagText = 'MISSING CREDS'; }
-    const cardClass = tagClass;
-    const envLine = c.env_vars_needed.length
-      ? `Needs: ${c.env_vars_needed.map(v => `<code>${v}</code>`).join(' ')}`
-      : (c.is_live ? 'No env var required.' : 'N/A while disabled/mock.');
-    return `<div class="cfgcard ${cardClass}">
-      <div class="cat">${CATEGORY_LABELS[key] || key}</div>
-      <span class="tag ${tagClass}">${tagText}</span>
-      <div class="prov">${c.provider}</div>
-      <div class="detail">
-        Set in: <code>${c.where_to_set.split(': ')[1]}</code><br>
-        ${envLine}
-        ${c.error ? `<br><span style="color:var(--danger)">${c.error}</span>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+/* ------------------------------------------------------------------ bar */
+function renderBar(){
+  const o = S.ov; if(!o) return;
+  const job = o.job, running = job && ["running","stopping"].includes(job.state);
+  const mode = o.mode==="live" ? `<span class="pill live"><span class="dot"></span>Live tools</span>`
+                               : `<span class="pill sim" title="Results are simulated demo data — not audit evidence"><span class="dot"></span>Simulated data</span>`;
+  let state;
+  if(o.paused) state = `<div class="state"><b>Paused</b><span>No runs will start until you resume</span></div>`;
+  else if(running){ const p=job.progress, pct=p.n?Math.round(p.i/p.n*100):0;
+    state = `<div class="state"><b><span class="dot pulse" style="color:#7fe3d3"></span> ${job.state==="stopping"?"Stopping…":"Running"} · ${p.i}/${p.n}</b><span>${esc(job.covered?.length||0)} strata · ${esc(job.trigger)}</span></div>
+             <div class="progress"><div class="meter" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div></div>`; }
+  else { const lr=o.last_run;
+    state = `<div class="state"><b>Idle</b><span>${lr?`Last run ${ago(lr.finished_at)} · ${lr.tested} techniques`:"No run yet"}${o.schedule.enabled?` · next ${until(o.schedule.next_run_at)}`:" · schedule off"}</span></div>`; }
+  const pickAll = S.runPick.size===0;
+  $("#bar").innerHTML = `
+    <div class="brand" aria-label="XETRA"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#e8eef2" fill-opacity=".1"/><rect x="5" y="6" width="22" height="3.5" fill="#e8eef2"/><rect x="5" y="11.5" width="22" height="3.5" fill="#49b8a8"/><rect x="5" y="17" width="22" height="3.5" fill="#e8eef2"/><rect x="5" y="22.5" width="14" height="3.5" fill="#e5533d"/></svg>XETRA</div>
+    ${mode}${state}<span class="spacer"></span>
+    ${running ? `<button class="btn danger" id="stop" ${job.state==="stopping"?"disabled":""}>Stop run</button>` : `
+      <div class="menu"><button class="btn primary" id="runbtn" ${o.paused?"disabled":""} aria-haspopup="true" aria-expanded="${S.runMenuOpen}">Run checks ▾</button>
+        ${S.runMenuOpen?`<div class="menu-pop" id="runpop">
+          <b style="font-size:13px">What should XETRA check?</b>
+          <p class="muted" style="font-size:12.5px;margin:3px 0 8px">Only the strata you pick are re-tested. The others keep their last results.</p>
+          <label><input type="checkbox" id="pickall" ${pickAll?"checked":""}> <b>All 7 strata</b></label><hr>
+          ${o.strata.map(s=>`<label><input type="checkbox" class="pk" value="${s.id}" ${S.runPick.has(s.id)?"checked":""}> <span class="mono faint">${s.n}</span> ${esc(s.name)}</label>`).join("")}
+          <hr><button class="btn primary" id="gorun" style="width:100%;justify-content:center">Start run</button></div>`:""}
+      </div>`}
+    <button class="btn ${o.paused?"primary":"ghost"}" id="pause" title="${o.paused?"Allow runs again":"Block every run, manual and scheduled, until resumed"}">${o.paused?"Resume":"Pause"}</button>
+    <button class="btn ghost" id="theme" aria-label="Switch between light and dark" title="Light / dark">Theme</button>`;
+  $("#runbtn")?.addEventListener("click", e=>{ e.stopPropagation(); S.runMenuOpen=!S.runMenuOpen; renderBar(); });
+  $("#pickall")?.addEventListener("change", e=>{ if(e.target.checked){ S.runPick.clear(); } renderBar(); });
+  document.querySelectorAll(".pk").forEach(c=>c.addEventListener("change", e=>{ e.target.checked?S.runPick.add(e.target.value):S.runPick.delete(e.target.value); if(S.runPick.size===7) S.runPick.clear(); renderBar(); }));
+  $("#gorun")?.addEventListener("click", guard(()=>startRun([...S.runPick])));
+  $("#stop")?.addEventListener("click", guard(async()=>{ await api("/api/run/stop",{}); toast("Stopping after the current technique…"); }));
+  $("#pause")?.addEventListener("click", guard(async()=>{ await api("/api/pause",{paused:!o.paused}); await refresh(); toast(o.paused?"Resumed.":"Paused. Nothing will start until you resume."); }));
+  $("#theme")?.addEventListener("click", ()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; store.set("xetra-theme",t); });
+}
+document.addEventListener("click", e=>{ if(S.runMenuOpen && !e.target.closest(".menu")){ S.runMenuOpen=false; renderBar(); } });
+async function startRun(strata){
+  S.runMenuOpen=false; S.runPick.clear();
+  await api("/api/run",{strata: strata.length?strata:null}); S.ov.job = (await api("/api/run")).job; startPolling(); renderBar();
+  if(S.route!=="overview" && !S.route.startsWith("s:")) await go("overview"); else render();
+  toast("Run started.");
 }
 
-async function triggerCycle(stratum, btnEl) {
-  btnEl.disabled = true;
-  const originalText = btnEl.textContent;
-  btnEl.textContent = 'Running...';
-  try {
-    const resp = await fetch('/api/trigger', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(stratum ? { stratum } : {}),
-    });
-    const { job_id } = await resp.json();
-    const poll = setInterval(async () => {
-      const jr = await fetch('/api/job/' + job_id);
-      const job = await jr.json();
-      if (job.status === 'completed' || job.status === 'failed') {
-        clearInterval(poll);
-        btnEl.disabled = false;
-        btnEl.textContent = originalText;
-        if (job.status === 'failed') alert('Cycle failed: ' + job.error);
-        pollStatus();
-      }
-    }, 1500);
-  } catch (e) {
-    btnEl.disabled = false;
-    btnEl.textContent = originalText;
-    alert('Could not trigger a cycle: ' + e.message);
-  }
+/* ----------------------------------------------------------------- rail */
+function renderRail(){
+  const o=S.ov; if(!o) return;
+  const item=(r,label,tag,extra="")=>`<button class="nav" data-r="${r}" ${S.route===r?'aria-current="page"':""}>${label}${tag||""}</button>`;
+  const setupBad = o.setup.filter(x=>x.required && ["untested","failed"].includes(x.state)).length;
+  $("#rail").innerHTML = `
+    ${item("overview","Overview")}
+    ${item("setup","Setup", setupBad?`<span class="tag unk">${setupBad}</span>`:"")}
+    <div class="grp">The seven strata</div>
+    ${o.strata.map(s=>item("s:"+s.id, `<span class="n">${s.n}</span><span class="sdot ${s.health}"></span>${esc(s.short)}`,
+        s.gaps?`<span class="tag gap">${s.gaps}</span>`:s.not_tested?`<span class="tag unk">${s.not_tested}</span>`:s.health==="healthy"?`<span class="tag ok">✓</span>`:`<span class="tag none">–</span>`)).join("")}
+    <div class="grp">Act and audit</div>
+    ${item("findings","All findings")}
+    ${item("fixes","Fix list", o.fixes.open?`<span class="tag gap">${o.fixes.open}</span>`:"")}
+    ${item("activity","Activity &amp; evidence")}
+    ${item("controls","Controls")}
+    <div class="foot">Every action you take here is written to the Activity log.</div>`;
+  document.querySelectorAll("#rail .nav").forEach(b=>b.addEventListener("click",()=>go(b.dataset.r)));
 }
 
-function renderBanners(status) {
-  const modeB = document.getElementById('modeBanner');
-  if (status.mock_mode) {
-    modeB.innerHTML = `<div class="banner mock">MOCK MODE \u2014 this is NOT real audit evidence.
-      <small>${status.mock_mode_warning || 'At least one core adapter (BAS/SIEM/SOAR/EDR) is simulated.'}</small></div>`;
-  } else {
-    modeB.innerHTML = `<div class="banner live">LIVE MODE \u2014 all core adapters are real, configured providers.</div>`;
-  }
-  const staleB = document.getElementById('staleBanner');
-  staleB.innerHTML = status.stale
-    ? `<div class="banner stale">STALE DATA \u2014 last cycle was ${status.age_minutes} minutes ago.
-        <small>Check the scheduler (xetra-cycle container / cron) is actually running.</small></div>`
-    : '';
-  document.getElementById('mainContent').style.display = 'block';
-  renderCards(status.summary || {});
+/* ------------------------------------------------------------- overview */
+function cellsFor(sid){
+  const st=S.ov.strata.find(s=>s.id===sid);
+  return st; }
+function staleBanner(){
+  const st=S.ov.stale; if(!st||!st.stale) return "";
+  const age=st.last_run_age_minutes, txt = age<1?"under a minute":age<120?Math.round(age)+" minutes":(age/60).toFixed(1)+" hours";
+  const why = st.scheduler_overdue ? `The schedule is on (every ${S.ov.schedule.every_minutes} min) but no run has finished for ${txt}. The scheduler may have stopped — check the Activity log.` : `The last run finished ${txt} ago. Results older than ${st.threshold_minutes<120?st.threshold_minutes+" minutes":Math.round(st.threshold_minutes/60*10)/10+" hours"} are treated as stale.`;
+  return `<div class="wrap"><div class="banner stale" role="alert"><div>Stale data<small>${esc(why)}</small></div><button class="btn danger small" data-act="run_all">Run all 7 strata now</button></div></div>`;
+}
+function trendChart(){
+  const t=S.ov.trend||[]; if(t.length<2) return `<p class="muted" style="font-size:13px">The trend appears after your second run.</p>`;
+  const W=640,H=130,P=26,mx=Math.max(...t.map(x=>x.gaps),1);
+  const X=i=>P+i*(W-2*P)/(t.length-1), Y=v=>H-P-(v/mx)*(H-2*P);
+  const pts=t.map((x,i)=>`${X(i).toFixed(1)},${Y(x.gaps).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Missed techniques after each of the last ${t.length} runs, now ${t[t.length-1].gaps}">
+    <line x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}" stroke="var(--line)"/><polyline fill="none" stroke="var(--gap)" stroke-width="2.5" points="${pts}"/>
+    ${t.map((x,i)=>`<circle cx="${X(i)}" cy="${Y(x.gaps)}" r="3.5" fill="var(--gap)"><title>${new Date(x.ts).toLocaleString()}: ${x.gaps} missed of ${x.tested} tested</title></circle>`).join("")}
+    <text x="${P}" y="14" font-size="11" fill="var(--ink-3)">${mx} missed</text><text x="${P}" y="${H-8}" font-size="11" fill="var(--ink-3)">0</text>
+    <text x="${W-P}" y="${H-8}" font-size="11" text-anchor="end" fill="var(--ink-3)">latest: ${t[t.length-1].gaps}</text></svg>`;
+}
+function renderOverview(){
+  const o=S.ov, t=o.totals; let n=o.next;
+  if(o.job && ["running","stopping"].includes(o.job.state)) n={title:"A run is in progress",body:"Watch it below. You can stop it at any time with the red button in the top bar.",action:null};
+  const nextCls = n.title.includes("gap")||n.title.includes("paused")?"warn":n.action==="goto"&&n.target==="setup"?"info":"";
+  const btn = n.action==="run_all"?`<button class="btn primary" data-act="run_all">${esc(n.label)}</button>`
+            : n.action==="goto"?`<button class="btn primary" data-act="goto" data-t="${n.target}">${esc(n.label)}</button>`
+            : n.action==="resume"?`<button class="btn primary" data-act="resume">${esc(n.label)}</button>`:"";
+  return `<div class="wrap">
+    <div class="page-head"><div><h1>Overview</h1><p class="muted">Seven layers of your stack, tested against the techniques ARTEX uses. Every square below is one technique.</p></div></div>
+    ${o.mode==="mock"?`<div class="callout" style="margin-bottom:14px"><b>You are looking at simulated data.</b> It shows how XETRA works without touching any real system. It is not audit evidence. Connect your real tools in <a href="#setup" data-go="setup">Setup</a> when you're ready.</div>`:""}
+    <div class="card next ${nextCls}"><div><h2>${esc(n.title)}</h2><p class="muted" style="margin-top:3px;max-width:64ch">${esc(n.body)}</p></div>${btn}</div>
+    <div id="live-top"></div>
+    <div class="grid g4" style="margin:14px 0">
+      <div class="card stat"><b>${t.tested}<small class="faint" style="font-size:15px;font-weight:500"> / ${t.defined}</small></b><span>techniques tested so far</span></div>
+      <div class="card stat ok"><b>${t.caught}</b><span>caught by your controls</span></div>
+      <div class="card stat gap"><b>${t.gaps}</b><span>missed — need a decision</span></div>
+      <div class="card stat unk"><b>${t.not_tested}</b><span>couldn't be tested (unknown)</span></div>
+    </div>
+    <div class="strata-col" role="list" aria-label="Strata">${o.strata.map(bandHtml).join("")}</div>
+    <div class="legend"><span><i style="background:var(--caught)"></i>Caught</span><span><i style="background:repeating-linear-gradient(135deg,var(--gap) 0 2px,#f19a8b 2px 4px)"></i>Missed</span>
+      <span><i style="background:var(--unk-bg);outline:1px solid var(--unk);outline-offset:-1px"></i>Couldn't test (unknown, not a pass)</span><span><i style="border:1.5px dashed var(--none)"></i>Not run yet</span></div>
+    <div class="card" style="margin-top:14px"><h2>Trend</h2><p class="muted" style="font-size:13px;margin:2px 0 8px">Techniques currently missed, across all strata, after each of the last 20 runs.</p>${trendChart()}</div>
+    <div id="live-bottom"></div>
+  </div>`;
+}
+function bandHtml(s){
+  const cached = S.stratum[s.id];
+  const cells = cached ? cached.rows.map(r=>`<i class="cell ${r.status}" title="${esc(r.technique_id)} — ${STATUS_LABEL[r.status]}"></i>`).join("")
+                       : Array.from({length:s.defined},()=>`<i class="cell untested"></i>`).join("");
+  return `<button class="band" data-s="${s.id}" role="listitem"><span class="nm"><span class="n">${s.n}</span><b>${esc(s.name)}</b></span>
+    <span class="cells" data-cells="${s.id}">${cells}</span>
+    <span class="cnt"><b>${s.tested}</b>/${s.defined} tested${s.stale?` · <span class="stalemark">stale</span>`:""}${s.gaps?` · <b style="color:var(--gap)">${s.gaps} missed</b>`:s.health==="healthy"?` · <b style="color:var(--caught)">all caught</b>`:""}</span></button>`;
+}
+async function hydrateBands(){
+  // fill each band's squares with real per-technique status (one request per stratum, in parallel)
+  await Promise.all(S.ov.strata.map(async s=>{ try{ S.stratum[s.id]=await api("/api/stratum/"+s.id); const el=$(`[data-cells="${s.id}"]`);
+    if(el) el.innerHTML = S.stratum[s.id].rows.map(r=>`<i class="cell ${liveStatus(r)}" title="${esc(r.technique_id)} — ${STATUS_LABEL[r.status]}"></i>`).join(""); }catch(e){} }));
+}
+function liveStatus(r){ const j=S.ov.job; if(j && j.state==="running" && j.technique_status && j.technique_status[r.technique_id]) return "running"; return r.status; }
+function renderLive(){
+  const j=S.ov.job; const running=j&&["running","stopping"].includes(j.state);
+  const el=$(running?"#live-top":"#live-bottom"); if($("#live-top")) $("#live-top").innerHTML=""; if($("#live-bottom")) $("#live-bottom").innerHTML="";
+  if(!j||!el) return;
+  const labels={hunt:"Hunt",harden:"Harden",respond:"Respond",recover:"Recover",attest:"Attest"};
+  const sub={hunt:"run & check",harden:"propose fixes",respond:"playbooks",recover:"retest gaps",attest:"save evidence"};
+  el.innerHTML = `<div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><h2>${running?"Run in progress":"Last run"} <span class="faint mono" style="font-weight:500">${esc(j.run_id)}</span></h2>
+      <span class="badge ${j.state==="completed"?"caught":j.state==="failed"?"gap":j.state==="cancelled"?"not_tested":"untested"}">${esc(j.state)}</span></div>
+    <div class="stages" style="margin-top:10px">${Object.keys(labels).map(k=>`<div class="stage ${j.stages[k]||""}">${labels[k]}<small>${sub[k]}</small></div>`).join("")}</div>
+    <div class="log" aria-live="polite">${(j.log||[]).slice(-14).map(l=>`<div><span>${new Date(l.ts).toLocaleTimeString()}</span>${esc(l.msg)}</div>`).join("")||"<div class='faint'>Waiting…</div>"}</div></div>`;
+  const lg=el.querySelector(".log"); if(lg) lg.scrollTop=lg.scrollHeight;
+  if(running){ const j2=j.technique_status||{}; Object.keys(S.stratum).forEach(sid=>{ const el=$(`[data-cells="${sid}"]`); if(!el) return;
+    el.innerHTML = S.stratum[sid].rows.map(r=>{ const live=j2[r.technique_id]; const cls = live ? (live==="caught"?"caught":live) : (S.ov.job.requested_strata.includes(sid)?"untested":r.status); return `<i class="cell ${cls}" title="${esc(r.technique_id)}"></i>`; }).join(""); }); }
 }
 
-function renderCards(s) {
-  const cards = [
-    { label: 'Techniques Tested', val: s.techniques_tested ?? '\u2014', cls: '' },
-    { label: 'Gaps Found', val: s.gaps_found ?? '\u2014', cls: (s.gaps_found > 0 ? 'warn' : 'ok') },
-    { label: 'Responses Triggered', val: s.responses_triggered ?? '\u2014', cls: '' },
-    { label: 'Recoveries Validated', val: s.recoveries_validated ?? '\u2014', cls: 'ok' },
-    { label: 'Still Open', val: s.recoveries_still_gapped ?? '\u2014', cls: (s.recoveries_still_gapped > 0 ? 'danger' : 'ok') },
-  ];
-  document.getElementById('summaryCards').innerHTML = cards.map(c =>
-    `<div class="card"><div class="num ${c.cls}">${c.val}</div><div class="label">${c.label}</div></div>`
-  ).join('');
+/* -------------------------------------------------------- stratum tab */
+function renderStratum(id){
+  const d=S.stratum[id]; if(!d) return `<div class="wrap"><div class="empty">Loading…</div></div>`;
+  const filter = S.stFilter||"all";
+  const ord={gap:0,not_tested:1,untested:2,caught:3};
+  const rows = [...d.rows].sort((a,b)=>ord[a.status]-ord[b.status]).filter(r=> filter==="all" || (filter==="gap"&&r.status==="gap") || (filter==="unk"&&["not_tested","untested"].includes(r.status)) || (filter==="caught"&&r.status==="caught"));
+  const spark = sparkline(d.history.map(h=>h.gaps_total));
+  const never = d.tested===0;
+  return `<div class="wrap">
+    <div class="page-head"><div><div class="faint mono">Stratum ${d.n} of 7</div><h1>${esc(d.name)}</h1><p class="muted">${esc(d.blurb)}</p></div>
+      <div class="row"><button class="btn primary" data-retest="${id}" ${S.ov.paused||S.ov.job&&["running","stopping"].includes(S.ov.job.state)?"disabled":""}>${never?"Run this stratum":"Re-test this stratum"}</button></div></div>
+    <div class="grid g4">
+      <div class="card stat"><b>${d.tested}<small class="faint" style="font-size:15px;font-weight:500"> / ${d.defined}</small></b><span>techniques tested</span></div>
+      <div class="card stat ok"><b>${d.caught}</b><span>caught</span></div>
+      <div class="card stat gap"><b>${d.gaps}</b><span>missed</span></div>
+      <div class="card stat unk"><b>${d.not_tested}</b><span>couldn't test</span></div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><div><h3>Last tested ${ago(d.last_tested_at)}</h3>
+        <p class="muted" style="font-size:13px;margin-top:2px">${d.modes.includes("mock")?"Includes simulated results. ":""}Re-testing this stratum leaves the other six exactly as they are.</p></div>
+        ${d.history.length>1?`<div style="text-align:right"><div class="faint" style="font-size:12px">Missed over time</div>${spark}</div>`:""}</div>
+      <div class="cells" style="margin-top:14px">${d.rows.map(r=>`<i class="cell ${r.status}" title="${esc(r.technique_id)} — ${STATUS_LABEL[r.status]}"></i>`).join("")}</div></div>
+    <div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2>Techniques</h2>
+      <div class="tabs" style="border:0;margin:0" role="tablist">${[["all","All"],["gap","Missed"],["unk","Unknown"],["caught","Caught"]].map(([k,l])=>`<button role="tab" aria-selected="${filter===k}" data-sf="${k}">${l}</button>`).join("")}</div></div>
+      ${never?`<div class="empty"><h3>This stratum hasn't been tested yet</h3><p>Press “Run this stratum”. It takes a few seconds and doesn't affect the other six.</p></div>`:
+      `<table><thead><tr><th>Technique</th><th>Result</th><th>What your controls should do</th><th>Fix</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr class="click" data-tech="${esc(r.technique_id)}"><td><b class="mono">${esc(r.technique_id)}</b><div class="faint mono" style="font-size:11px">${esc(r.ttp_id)}</div></td>
+        <td><span class="badge ${r.status}">${STATUS_LABEL[r.status]}</span>${r.tested_at?`<div class="faint" style="font-size:11.5px;margin-top:3px">${ago(r.tested_at)}</div>`:""}</td>
+        <td class="muted" style="font-size:13px">${esc(r.expected_control)}</td>
+        <td>${r.fix?`<span class="badge ${r.fix.status}">${r.fix.status.replace("_"," ")}</span>`:`<span class="faint">—</span>`}</td></tr>`).join("")||`<tr><td colspan="4" class="faint" style="padding:22px;text-align:center">Nothing matches this filter.</td></tr>`}
+      </tbody></table>`}</div>
+    <div class="card" style="margin-top:14px"><h3>If a technique is missed here</h3>
+      <dl class="kv"><dt>Proposed fix</dt><dd>${esc(d.hint)}</dd><dt>Response playbook</dt><dd><span class="mono">${esc(d.playbook)}</span> ${S.ov.live_playbooks||S.ov.adapter_modes.soar==="mock"?"":`<span class="badge untested">held — real playbooks are off (Controls)</span>`}</dd></dl></div>
+  </div>`;
+}
+function sparkline(vals){ if(vals.length<2) return ""; const w=120,h=30,mx=Math.max(...vals,1); const pts=vals.map((v,i)=>`${(i/(vals.length-1)*w).toFixed(1)},${(h-2-(v/mx)*(h-6)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Missed techniques over the last ${vals.length} runs, now ${vals[vals.length-1]}"><polyline fill="none" stroke="var(--gap)" stroke-width="2" points="${pts}"/></svg>`; }
+function openTech(sid, tid){
+  const r=S.stratum[sid].rows.find(x=>x.technique_id===tid); if(!r) return;
+  const bas=r.detail?.bas, siem=r.detail?.siem;
+  const why = r.status==="gap" ? `The simulation ${r.bas_outcome==="undetected"?"was not blocked or detected":"ran"}${r.siem_alerted?"":" and your SIEM raised no alert"}.`
+            : r.status==="caught" ? `The simulation was ${r.bas_outcome==="blocked"?"blocked":"detected"} and your SIEM ${r.siem_alerted?"alerted":"did not need to alert"}.`
+            : r.status==="not_tested" ? `XETRA couldn't run this one: ${esc(r.detail?.error||"the vendor returned an error")}. It is counted as unknown, never as a pass.` : "Not run yet.";
+  openDrawer(`<div class="row" style="justify-content:space-between"><div><div class="faint mono">${esc(r.ttp_id)}</div><h1 class="mono">${esc(r.technique_id)}</h1></div><button class="btn small" data-close>Close</button></div>
+    <div style="margin:10px 0"><span class="badge ${r.status}">${STATUS_LABEL[r.status]}</span> ${r.mode==="mock"?`<span class="badge simulated">simulated</span>`:""}</div>
+    <p>${why}</p>
+    <dl class="kv"><dt>What it covers</dt><dd>${esc(r.description)}</dd><dt>Expected control</dt><dd>${esc(r.expected_control)}</dd><dt>Tested</dt><dd>${r.tested_at?new Date(r.tested_at).toLocaleString():"never"}</dd>
+      <dt>Attack emulation</dt><dd>${esc(r.bas_outcome??"—")}</dd><dt>SIEM alert</dt><dd>${r.siem_alerted==null?"—":r.siem_alerted?"yes":"no"}</dd></dl>
+    ${r.fix?`<h3>Fix status: <span class="badge ${r.fix.status}">${r.fix.status.replace("_"," ")}</span></h3><p class="muted" style="margin:6px 0 10px">${esc(r.fix.recommended_action)}</p>
+      <button class="btn" data-fixgo>Open in the fix list</button>`:""}
+    <h3 style="margin-top:18px">Raw result</h3><pre class="json">${esc(JSON.stringify(r.detail,null,2))}</pre>`);
+  $("#layer [data-fixgo]")?.addEventListener("click",()=>{ closeLayer(); S.fixFilter={status:"",stratum:sid}; go("fixes"); });
+}
+function openDrawer(html){ $("#layer").innerHTML=`<div class="scrim" data-scrim><aside class="drawer" role="dialog" aria-modal="true">${html}</aside></div>`; bindLayer(); }
+function openModal(html){ $("#layer").innerHTML=`<div class="scrim center" data-scrim><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`; bindLayer(); }
+function closeLayer(){ $("#layer").innerHTML=""; }
+function bindLayer(){ $("#layer [data-close]")?.addEventListener("click",closeLayer); $("#layer [data-scrim]")?.addEventListener("mousedown",e=>{ if(e.target.dataset.scrim!==undefined) closeLayer(); }); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeLayer(); });
+
+/* ----------------------------------------------------------------- setup */
+function connState(cat){
+  const c=S.cfg.categories[cat], p=c.provider, t=S.tests[cat]||c.last_test; const spec=S.catalog.providers[cat][p];
+  if(p==="none") return {cls:"untested",txt:"Off"};
+  if(!spec.live) return {cls:"simulated",txt:"Simulated"};
+  if(t && t.provider===p || t && !t.provider){ if(t.ok&&t.verified) return {cls:"verified-c",txt:"Connected ✓"}; if(t.ok) return {cls:"untested-c",txt:"Reachable"}; return {cls:"failed",txt:"Needs attention"}; }
+  return {cls:"untested-c",txt:"Not tested"};
+}
+function renderSetup(){
+  if(!S.cfg||!S.catalog) return `<div class="wrap"><div class="empty">Loading…</div></div>`;
+  const cats=Object.keys(S.catalog.categories);
+  const liveCount=["bas","siem","soar","edr"].filter(k=>S.catalog.providers[k][S.cfg.categories[k].provider].live).length;
+  const scope=S.cfg.scope;
+  return `<div class="wrap"><div class="page-head"><div><h1>Setup</h1>
+    <p class="muted">Connect XETRA to your real tools one at a time. Everything works in simulated mode first, so there's nothing to break. After each step, press <b>Test connection</b> — you'll get a plain answer and what to do next.</p></div>
+    <span class="pill ${liveCount===4?"live":"sim"}">${liveCount} of 4 core tools live</span></div>
+    <div class="step"><div class="no ${scope.authorized_by?"done":""}">${scope.authorized_by?"✓":"1"}</div><div class="card"><h2>Who authorised testing?</h2>
+      <p class="muted" style="margin:4px 0 8px">Only needed before you connect a real attack-emulation tool. Record whoever signed your Rules of Engagement — it's stamped into the evidence.</p>
+      <div class="grid g2"><div class="field"><label for="sc-by">Authorised by (name and role)</label><input type="text" id="sc-by" value="${esc(scope.authorized_by)}" placeholder="e.g. Dana Lee, CISO"></div>
+        <div class="field"><label for="sc-env">Environment</label><select id="sc-env"><option value="staging" ${scope.environment==="staging"?"selected":""}>Staging (recommended)</option><option value="production" ${scope.environment==="production"?"selected":""}>Production</option></select></div></div>
+      <div class="field"><label for="sc-t">Authorised targets <span class="faint" style="font-weight:400">(optional — comma separated)</span></label><input type="text" id="sc-t" value="${esc((scope.targets||[]).join(", "))}" placeholder="10.0.0.0/24, app.staging.example.com"><div class="help">Leave blank if your scope lives entirely inside the attack-emulation tool's console.</div></div>
+      <button class="btn" id="save-scope">Save</button></div></div>
+    ${cats.map((k,i)=>setupCard(k,i+2)).join("")}
+    <div class="card" style="margin-top:18px"><h2>Pre-flight check</h2><p class="muted" style="margin:3px 0 10px">The same checks as <span class="mono">xetra doctor</span>.</p>
+      ${(S.doctor||[]).map(c=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line-soft);align-items:flex-start"><span class="badge ${c.status==="PASS"?"caught":c.status==="WARN"?"not_tested":"gap"}" style="min-width:52px;justify-content:center">${c.status}</span>
+        <div style="flex:1"><b>${esc(c.name)}</b> <span class="muted">${esc(c.message)}</span>${c.fix?`<div class="faint" style="font-size:12.5px">→ ${esc(c.fix)}</div>`:""}</div></div>`).join("")}</div></div>`;
+}
+function setupCard(cat, no){
+  const meta=S.catalog.categories[cat], cfg=S.cfg.categories[cat], d=S.draft[cat]||(S.draft[cat]={provider:cfg.provider, values:{}, model:cfg.model||""});
+  const prov=S.catalog.providers[cat][d.provider]; const st=connState(cat);
+  const fields = d.provider===cfg.provider ? cfg.fields : prov.fields.map(f=>({env:f.env,label:f.label,kind:f.kind,help:f.help,placeholder:f.placeholder,set:false,value:f.default||"",masked:""}));
+  const t=S.tests[cat];
+  const dirty = d.provider!==cfg.provider || Object.values(d.values).some(v=>v) || (cat==="llm"&&d.model!==(cfg.model||""));
+  return `<div class="step"><div class="no ${st.cls.startsWith("verified")||st.cls==="simulated"?"done":""}">${st.cls.startsWith("verified")||st.cls==="simulated"?"✓":no}</div>
+    <div class="card" data-card="${cat}"><div class="row" style="justify-content:space-between"><h2>${esc(meta.label)}${meta.required?"":` <span class="faint" style="font-weight:500">· optional</span>`}</h2><span class="badge ${st.cls}">${st.txt}</span></div>
+    <p class="muted" style="margin-top:3px">${esc(meta.role)}</p>
+    <div class="choices" role="radiogroup" aria-label="${esc(meta.label)} provider">${Object.entries(S.catalog.providers[cat]).map(([k,v])=>`<div class="choice" role="radio" tabindex="0" aria-checked="${d.provider===k}" data-cat="${cat}" data-prov="${k}"><b>${esc(v.label)}</b><span>${esc(v.blurb)}</span></div>`).join("")}</div>
+    ${fields.map(f=>`<div class="field"><label for="f-${f.env}">${esc(f.label)}${f.set?` <span class="badge verified" style="margin-left:6px">saved${f.source==="environment"?" (from environment)":""}</span>`:""}</label>
+      <div class="input-row"><input id="f-${f.env}" data-cat="${cat}" data-env="${f.env}" type="${f.kind==="secret"?"password":"text"}" autocomplete="off" spellcheck="false"
+        value="${esc(d.values[f.env]??(f.kind==="text"?f.value:""))}" placeholder="${f.set&&f.kind==="secret"?esc(f.masked)+"  — leave blank to keep":esc(f.placeholder)}">
+        ${f.kind==="secret"?`<button class="btn small ghost" data-show="f-${f.env}" type="button">Show</button>`:""}</div>${f.help?`<div class="help">${esc(f.help)}</div>`:""}</div>`).join("")}
+    ${cat==="llm"&&prov.live?`<div class="field"><label for="llm-model">Model</label>${t&&t.models&&t.models.length?
+        `<select id="llm-model" data-cat="llm">${!d.model?`<option value="">Choose a model…</option>`:""}${t.models.map(m=>`<option ${m===d.model?"selected":""}>${esc(m)}</option>`).join("")}</select>`:
+        `<input type="text" id="llm-model" data-cat="llm" value="${esc(d.model)}" placeholder="Press Test connection and we'll list the models your key can use">`}
+        <div class="help">Model names change often — so we fetch the real list from your account instead of guessing. <a href="${esc(prov.docs)}" target="_blank" rel="noopener">Provider docs</a></div></div>`:""}
+    ${d.provider==="anthropic"||d.provider==="openai"?`<div class="callout calm" style="margin:10px 0"><b>Safe by design.</b> The AI only drafts summary text for a person to read. It can't start a run, change a setting or trigger any response.</div>`:""}
+    <div class="row" style="margin-top:12px"><button class="btn" data-test="${cat}">Test connection</button><button class="btn primary" data-save="${cat}" ${dirty?"":"disabled"}>Save${dirty?"":"d"}</button>
+      ${dirty?`<span class="faint" style="font-size:12.5px">You have unsaved changes.</span>`:""}</div>
+    ${t?`<div class="result ${t.ok?(t.verified?"ok":"warn"):"bad"}" role="status"><b>${esc(t.message)}</b>${t.fix?`<span class="muted">${esc(t.fix)}</span>`:""}</div>`:
+      (cfg.last_test?`<div class="faint" style="margin-top:10px;font-size:12.5px">Last test ${ago(cfg.last_test.tested_at)}: ${esc(cfg.last_test.message)}</div>`:"")}
+  </div></div>`;
+}
+function bindSetup(){
+  $("#save-scope")?.addEventListener("click", guard(async()=>{ await api("/api/config",{scope:{authorized_by:$("#sc-by").value,environment:$("#sc-env").value,targets:$("#sc-t").value}}); toast("Scope saved."); S.cfg=await api("/api/config"); S.doctor=(await api("/api/doctor")).checks; render(); }));
+  document.querySelectorAll(".choice").forEach(el=>{ const pick=()=>{ const d=S.draft[el.dataset.cat]; d.provider=el.dataset.prov; d.values={}; delete S.tests[el.dataset.cat]; render(); }; el.addEventListener("click",pick); el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); pick(); } }); });
+  document.querySelectorAll("input[data-env]").forEach(i=>i.addEventListener("input",()=>{ S.draft[i.dataset.cat].values[i.dataset.env]=i.value; const sv=$(`[data-save="${i.dataset.cat}"]`); if(sv){ sv.disabled=false; sv.textContent="Save"; } }));
+  $("#llm-model")?.addEventListener("change",e=>{ S.draft.llm.model=e.target.value; const sv=$('[data-save="llm"]'); sv.disabled=false; sv.textContent="Save"; });
+  $("#llm-model")?.addEventListener("input",e=>{ S.draft.llm.model=e.target.value; const sv=$('[data-save="llm"]'); sv.disabled=false; sv.textContent="Save"; });
+  document.querySelectorAll("[data-show]").forEach(b=>b.addEventListener("click",()=>{ const i=$("#"+b.dataset.show); i.type=i.type==="password"?"text":"password"; b.textContent=i.type==="password"?"Show":"Hide"; }));
+  document.querySelectorAll("[data-test]").forEach(b=>b.addEventListener("click",guard(async()=>{ const cat=b.dataset.test, d=S.draft[cat]; b.disabled=true; b.textContent="Testing…";
+    try{ const r=await api("/api/connections/test",{category:cat,provider:d.provider,values:d.values,model:d.model||null}); r.provider=d.provider; S.tests[cat]=r;
+      if(cat==="llm" && r.models && r.models.length===1 && !d.model) d.model=r.models[0]; } finally{ render(); } })));
+  document.querySelectorAll("[data-save]").forEach(b=>b.addEventListener("click",guard(async()=>{ const cat=b.dataset.save, d=S.draft[cat];
+    if(cat==="llm" && S.catalog.providers.llm[d.provider].live && !d.model){ toast("Pick a model first — press Test connection to load the list.", true); return; }
+    await api("/api/connections/save",{category:cat,provider:d.provider,values:d.values,model:d.model||null});
+    delete S.draft[cat]; const keep=S.tests[cat]; S.cfg=await api("/api/config"); S.doctor=(await api("/api/doctor")).checks; await refresh(); S.tests[cat]=keep; toast("Saved. Applies to the next run."); render(); })));
 }
 
-function renderFull(data) {
-  currentFindings = data.findings || [];
-  currentRemediations = data.remediations || [];
-  renderStrata();
-  renderFindingsTable();
+/* ---------------------------------------------------------- all findings */
+function renderFindings(){
+  const F=S.findF||(S.findF={status:"",stratum:"",q:""}); const all=S.findings||[];
+  const name=id=>S.ov.strata.find(s=>s.id===id)?.name||id;
+  const rows=all.filter(r=>(!F.status||r.status===F.status)&&(!F.stratum||r.stratum===F.stratum)&&(!F.q||r.technique_id.toLowerCase().includes(F.q.toLowerCase())||(r.ttp_id||"").includes(F.q.toLowerCase())))
+    .sort((a,b)=>({gap:0,not_tested:1,caught:2}[a.status]-{gap:0,not_tested:1,caught:2}[b.status])||a.stratum.localeCompare(b.stratum));
+  return `<div class="wrap"><div class="page-head"><div><h1>All findings</h1><p class="muted">Latest result for every technique tested, across all seven strata. Missed first.</p></div>
+      <button class="btn" id="csv">Download CSV</button></div>
+    <div class="row" style="margin-bottom:12px">
+      <select id="fs" style="width:auto"><option value="">Any result</option><option value="gap" ${F.status==="gap"?"selected":""}>Missed</option><option value="not_tested" ${F.status==="not_tested"?"selected":""}>Couldn't test</option><option value="caught" ${F.status==="caught"?"selected":""}>Caught</option></select>
+      <select id="fst" style="width:auto"><option value="">All strata</option>${S.ov.strata.map(s=>`<option value="${s.id}" ${F.stratum===s.id?"selected":""}>${s.n}. ${esc(s.name)}</option>`).join("")}</select>
+      <input type="text" id="fq" value="${esc(F.q)}" placeholder="Search technique ID, e.g. T1003" style="width:240px"><span class="muted">${rows.length} of ${all.length}</span></div>
+    <div class="card" style="padding:6px">${all.length?`<table><thead><tr><th>Technique</th><th>Stratum</th><th>Result</th><th>Mode</th><th>Tested</th><th>Fix</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr class="click" data-fs="${r.stratum}" data-ft="${esc(r.technique_id)}"><td><b class="mono">${esc(r.technique_id)}</b></td><td>${esc(name(r.stratum))}</td><td><span class="badge ${r.status}">${STATUS_LABEL[r.status]}</span></td>
+        <td>${r.mode==="mock"?`<span class="badge simulated">simulated</span>`:"live"}</td><td class="faint">${ago(r.tested_at)}</td><td>${r.fix?`<span class="badge ${r.fix}">${r.fix.replace("_"," ")}</span>`:"—"}</td></tr>`).join("")||`<tr><td colspan="6" class="faint" style="padding:22px;text-align:center">Nothing matches.</td></tr>`}</tbody></table>`:
+      `<div class="empty"><h3>No findings yet</h3><p>Run the checks from the top bar.</p></div>`}</div></div>`;
+}
+function bindFindings(){
+  $("#fs")?.addEventListener("change",e=>{S.findF.status=e.target.value;render();}); $("#fst")?.addEventListener("change",e=>{S.findF.stratum=e.target.value;render();});
+  $("#fq")?.addEventListener("input",e=>{S.findF.q=e.target.value; const pos=e.target.selectionStart; render(); const el=$("#fq"); el.focus(); el.setSelectionRange(pos,pos);});
+  document.querySelectorAll("[data-ft]").forEach(tr=>tr.addEventListener("click",guard(async()=>{ const sid=tr.dataset.fs; S.stratum[sid]=await api("/api/stratum/"+sid); S.route="s:"+sid; openTechFrom(sid,tr.dataset.ft); })));
+  $("#csv")?.addEventListener("click",()=>{ const rows=[["stratum","technique","result","mode","tested_at","fix"],...(S.findings||[]).map(r=>[r.stratum,r.technique_id,r.status,r.mode,r.tested_at,r.fix||""])];
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"})); a.download="xetra-findings.csv"; a.click(); S.route="findings"; });
+}
+function openTechFrom(sid,tid){ S.route="findings"; openTech(sid,tid); S.route="findings"; }
+
+/* ------------------------------------------------------------- fix list */
+function renderFixes(){
+  const f=S.fixFilter, all=S.fixes;
+  const rows=all.filter(r=>(!f.status||r.status===f.status)&&(!f.stratum||r.stratum===f.stratum));
+  const cnt=s=>all.filter(r=>r.status===s).length;
+  return `<div class="wrap"><div class="page-head"><div><h1>Fix list</h1><p class="muted">Every missed technique becomes an item here. XETRA proposes a fix; <b>a named person decides</b>. When a later run catches the technique, XETRA marks it verified itself.</p></div></div>
+    <div class="tabs" role="tablist">${[["open","Needs a decision"],["approved","Approved — waiting for retest"],["verified","Verified fixed"],["risk_accepted","Risk accepted"],["","Everything"]].map(([k,l])=>`<button role="tab" aria-selected="${f.status===k}" data-ff="${k}">${l}${k?` <span class="faint">${cnt(k)}</span>`:` <span class="faint">${all.length}</span>`}</button>`).join("")}</div>
+    <div class="row" style="margin-bottom:12px"><label class="muted">Stratum <select id="ffs" style="width:auto;margin-left:6px"><option value="">All</option>${S.ov.strata.map(s=>`<option value="${s.id}" ${f.stratum===s.id?"selected":""}>${s.n}. ${esc(s.name)}</option>`).join("")}</select></label></div>
+    <div class="card" style="padding:6px 6px">${rows.length?`<table><thead><tr><th>Technique</th><th>Stratum</th><th>Proposed fix</th><th>Status</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td><b class="mono">${esc(r.technique_id)}</b><div class="faint" style="font-size:11.5px">opened ${ago(r.opened_at)}</div></td>
+        <td>${esc(S.ov.strata.find(s=>s.id===r.stratum)?.name||r.stratum)}</td><td class="muted" style="font-size:13px;max-width:320px">${esc(r.recommended_action)}
+          ${r.history.length?`<div class="faint" style="font-size:11.5px;margin-top:4px">${esc(r.history[r.history.length-1].by)}: ${esc(r.history[r.history.length-1].note||r.history[r.history.length-1].to)}</div>`:""}</td>
+        <td><span class="badge ${r.status}">${r.status.replace("_"," ")}</span></td>
+        <td style="text-align:right;white-space:nowrap">${r.status==="open"?`<button class="btn small primary" data-decide="${r.id}" data-to="approved">Approve fix</button> <button class="btn small" data-decide="${r.id}" data-to="risk_accepted">Accept risk</button>`:
+          r.status==="approved"?`<button class="btn small" data-retest="${r.stratum}">Retest stratum</button>`:
+          r.status==="risk_accepted"?`<button class="btn small" data-decide="${r.id}" data-to="open">Reopen</button>`:""}</td></tr>`).join("")}</tbody></table>`:
+      `<div class="empty"><h3>${all.length?"Nothing in this view":"No gaps yet"}</h3><p>${all.length?"Try another tab above.":"Run the checks — any missed technique will land here for a decision."}</p></div>`}</div></div>`;
+}
+function decide(id,to){
+  const me=store.get("xetra-name")||"";
+  const need=to==="risk_accepted";
+  openModal(`<h2>${to==="approved"?"Approve this fix":to==="risk_accepted"?"Accept this risk":"Reopen"}</h2>
+    <p class="muted" style="margin:6px 0 12px">${to==="approved"?"You're confirming the proposed fix should be made. XETRA will check it on the next retest.":to==="risk_accepted"?"You're recording that this gap is being knowingly left open. This goes into the audit record.":"Moves the item back to “Needs a decision”."}</p>
+    <div class="field"><label for="d-name">Your name</label><input type="text" id="d-name" value="${esc(me)}" placeholder="Who is making this decision?"></div>
+    <div class="field"><label for="d-note">${need?"Reason (required)":"Note (optional)"}</label><textarea id="d-note" rows="3"></textarea></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-close>Cancel</button><button class="btn primary" id="d-ok">Confirm</button></div>`);
+  $("#d-ok").addEventListener("click",guard(async()=>{ const name=$("#d-name").value.trim(); store.set("xetra-name",name);
+    await api("/api/fixes/"+id,{status:to,actor:name,note:$("#d-note").value}); closeLayer(); S.fixes=(await api("/api/fixes")).fixes; await refresh(); toast("Decision recorded."); render(); }));
 }
 
-function renderStrata() {
-  const byStratum = {};
-  STRATA_ORDER.forEach(s => byStratum[s] = { blocked: 0, detected_only: 0, undetected: 0, error: 0, total: 0 });
-  currentFindings.forEach(f => {
-    if (!byStratum[f.stratum]) byStratum[f.stratum] = { blocked: 0, detected_only: 0, undetected: 0, error: 0, total: 0 };
-    byStratum[f.stratum][f.bas_outcome] = (byStratum[f.stratum][f.bas_outcome] || 0) + 1;
-    byStratum[f.stratum].total++;
-  });
-
-  const el = document.getElementById('strataBlocks');
-  el.innerHTML = Object.entries(byStratum).filter(([,v]) => v.total > 0).map(([stratum, v]) => {
-    const segs = ['blocked', 'detected_only', 'undetected', 'error'].map(o =>
-      v[o] > 0 ? `<div class="barseg ${o}" style="width:${(v[o]/v.total*100)}%" title="${o}: ${v[o]}"></div>` : ''
-    ).join('');
-    const pct = v.total ? Math.round((v.blocked / v.total) * 100) : 0;
-    const remItems = currentRemediations.filter(r => r.stratum === stratum);
-    const isOpen = openStrata.has(stratum);
-    return `<div class="stratum-block">
-      <div class="stratum-head" onclick="toggleStratum('${stratum}')">
-        <div class="stratum-caret">${isOpen ? '\u25be' : '\u25b8'}</div>
-        <div class="stratum-name">${stratum}</div>
-        <div class="barbg">${segs}</div>
-        <div class="stratum-pct">${pct}% ok</div>
-      </div>
-      <div class="stratum-body ${isOpen ? 'open' : ''}" id="stratum-body-${stratum}">
-        <h4>Open remediation items (${remItems.length})</h4>
-        ${remItems.length
-          ? remItems.map(r => `<div class="remediation-item"><span class="tech">${r.technique_id}</span> \u2014 <span class="action">${r.recommended_action}</span></div>`).join('')
-          : '<p class="empty" style="padding:8px 0;">No open gaps in this stratum.</p>'}
-        <h4>Controls</h4>
-        <button class="small" onclick="retestStratum('${stratum}', this)">Re-test this stratum only</button>
-      </div>
-    </div>`;
-  }).join('') || '<p class="empty">No findings yet.</p>';
+/* --------------------------------------------------- activity & evidence */
+function renderActivity(){
+  const tabs=[["runs","Runs & evidence"],["log","Activity log"]];
+  const body = S.evTab==="runs" ? `<div class="card" style="padding:6px"><table><thead><tr><th>When</th><th>What</th><th>Result</th><th>Mode</th><th></th></tr></thead><tbody>
+    ${S.runs.map(r=>`<tr><td>${new Date(r.started_at).toLocaleString()}<div class="faint mono" style="font-size:11px">${esc(r.run_id)}</div></td>
+      <td>${esc((r.strata||[]).length===7?"All 7 strata":(r.strata||[]).map(x=>S.ov.strata.find(s=>s.id===x)?.short||x).join(", "))}<div class="faint" style="font-size:12px">${esc(r.trigger||"")}</div></td>
+      <td>${r.state==="completed"?`${r.tested} tested · <b style="color:${r.gaps?"var(--gap)":"var(--caught)"}">${r.gaps} missed</b>${r.not_tested?` · ${r.not_tested} unknown`:""}`:`<span class="badge ${r.state==="failed"?"gap":"not_tested"}">${esc(r.state)}</span>`}</td>
+      <td><span class="badge ${r.mode==="mock"?"simulated":"verified"}">${r.mode==="mock"?"simulated":"live"}</span>${r.partial?` <span class="badge untested">partial</span>`:""}</td>
+      <td style="text-align:right">${r.file?`<a class="btn small" href="/evidence/${encodeURIComponent(r.file)}" download>Download JSON</a>`:""}</td></tr>`).join("")||`<tr><td colspan="5"><div class="empty"><h3>No runs yet</h3><p>Start one from the top bar.</p></div></td></tr>`}</tbody></table></div>
+    <div class="dropzone" id="drop" tabindex="0" role="button" style="margin-top:14px">Open an evidence file from disk — drop a <span class="mono">xetra-attest-*.json</span> here or click to choose.<div class="faint" style="font-size:12px;margin-top:4px">Read entirely in your browser. Nothing is uploaded. Works with files from older versions too.</div><input type="file" id="evfile" accept=".json" hidden></div>
+    <div class="row" style="margin-top:14px"><a class="btn" href="/api/posture/export" download>Download full posture (all 7 strata, latest result per technique)</a></div>
+    <p class="faint" style="margin-top:8px;max-width:70ch">Evidence from simulated runs carries <span class="mono">mock_mode: true</span> and is for testing only. Evidence from a run of some strata is marked <span class="mono">partial: true</span>; use the full-posture download for a complete picture.</p>`
+    : `<div class="row" style="margin-bottom:10px"><select id="evf" style="width:auto"><option value="">Everything</option><option value="run">Runs</option><option value="fix">Fix decisions</option><option value="control">Controls (pause, schedule, playbooks)</option><option value="config">Settings</option><option value="connection">Connection tests</option></select>
+      <a class="btn small" href="/api/events.jsonl" download>Download log</a></div>
+    <div class="card" style="padding:6px"><table><tbody>${S.events.filter(e=>!S.evFilter||e.kind.startsWith(S.evFilter)).map(e=>`<tr><td style="width:150px;white-space:nowrap" class="faint">${new Date(e.ts).toLocaleString()}</td>
+      <td style="width:26px"><span class="sdot ${e.level==="error"?"gaps":e.level==="warn"?"not_tested":"healthy"}" style="display:inline-block"></span></td><td>${esc(e.message)}<div class="faint mono" style="font-size:11px">${esc(e.kind)}</div></td></tr>`).join("")||`<tr><td><div class="empty">Nothing logged yet.</div></td></tr>`}</tbody></table></div>`;
+  return `<div class="wrap"><div class="page-head"><div><h1>Activity &amp; evidence</h1><p class="muted">Everything XETRA did and everything a person told it to do — nothing happens off the record.</p></div></div>
+    <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${S.evTab===k}" data-et="${k}">${l}</button>`).join("")}</div>${body}</div>`;
 }
 
-function toggleStratum(stratum) {
-  if (openStrata.has(stratum)) openStrata.delete(stratum); else openStrata.add(stratum);
-  renderStrata();
+function viewEvidenceFile(file){
+  const rd=new FileReader(); rd.onload=()=>{ let d; try{ d=JSON.parse(rd.result); }catch(e){ toast("That file isn't valid JSON.",true); return; }
+    if(d.program!=="XETRA"||!Array.isArray(d.findings)){ toast("That doesn't look like a XETRA evidence package.",true); return; }
+    const st=f=>f.status||(f.gap?"gap":"caught"); const sm=d.summary||{};
+    openDrawer(`<div class="row" style="justify-content:space-between"><div><div class="faint mono">${esc(file.name)}</div><h1>Evidence package</h1></div><button class="btn small" data-close>Close</button></div>
+      <div style="margin:10px 0"><span class="badge ${d.mock_mode?"simulated":"verified"}">${d.mock_mode?"simulated — not audit evidence":"live"}</span> ${d.partial?`<span class="badge untested">partial: ${(d.strata_covered||[]).join(", ")}</span>`:""}</div>
+      <dl class="kv"><dt>Cycle</dt><dd>${esc(d.cycle_label)}</dd><dt>Generated</dt><dd>${new Date(d.generated_at).toLocaleString()}</dd><dt>Tested</dt><dd>${sm.techniques_tested??d.findings.length}</dd><dt>Missed</dt><dd>${sm.gaps_found??d.findings.filter(f=>st(f)==="gap").length}</dd>
+      <dt>Tools</dt><dd class="mono">${esc(Object.entries(d.adapter_modes||{}).map(([k,v])=>k+"="+v).join("  "))}</dd></dl>
+      ${d.analyst_summary?`<div class="callout calm"><b>AI-drafted summary (needs human review)</b><p style="margin-top:4px">${esc(d.analyst_summary.text)}</p></div>`:""}
+      <h3 style="margin-top:14px">Findings</h3><table><tbody>${d.findings.map(f=>`<tr><td class="mono">${esc(f.technique_id)}</td><td>${esc(f.stratum)}</td><td><span class="badge ${st(f)}">${STATUS_LABEL[st(f)]}</span></td></tr>`).join("")}</tbody></table>`); };
+  rd.readAsText(file);
 }
 
-function retestStratum(stratum, btnEl) {
-  triggerCycle(stratum, btnEl);
+/* -------------------------------------------------------------- controls */
+function renderControls(){
+  const o=S.ov, c=S.cfg; if(!c) return `<div class="wrap"><div class="empty">Loading…</div></div>`;
+  const sch=o.schedule;
+  const soarLive=o.adapter_modes.soar!=="mock";
+  return `<div class="wrap"><div class="page-head"><div><h1>Controls</h1><p class="muted">Everything that decides when XETRA acts. Nothing here is hidden in a file.</p></div></div>
+    <div class="card">
+      <div class="switch"><div class="t"><h3>Pause everything</h3><p>Blocks all runs — manual and scheduled — until you resume. Use this in an incident or change freeze. Also in the top bar.</p></div>
+        <button class="tog" role="switch" aria-checked="${o.paused}" aria-label="Pause everything" data-tog="pause"></button></div>
+      <div class="switch"><div class="t"><h3>Run automatically</h3><p>Re-checks all 7 strata on a timer.${sch.enabled&&sch.next_run_at?` Next run ${until(sch.next_run_at)}.`:""}</p>
+          <div class="row" style="margin-top:8px"><label>Every <input type="number" id="sch-min" min="5" max="10080" value="${sch.every_minutes}" style="width:90px;display:inline-block;margin:0 6px"> minutes</label><button class="btn small" id="sch-save">Update</button></div></div>
+        <button class="tog" role="switch" aria-checked="${sch.enabled}" aria-label="Run automatically" data-tog="schedule"></button></div>
+      <div class="switch"><div class="t"><h3>Allow real containment playbooks</h3>
+          <p>${soarLive?"When a technique is missed, XETRA will run your live response playbook (isolate, revoke, rotate…). <b>These act on real systems.</b> Leave off until you've reviewed what each playbook does.":"Your response tool is simulated, so nothing real can happen. This only matters once you connect a live SOAR."}</p></div>
+        <button class="tog risky" role="switch" aria-checked="${c.respond.allow_live_playbooks}" aria-label="Allow real containment playbooks" data-tog="playbooks"></button></div>
+      <div class="switch"><div class="t"><h3>Include the extended technique library</h3><p>On: the full ATT&amp;CK coverage (${o.totals.defined} techniques). Off: only the core ARTEX kill chain. Takes effect on the next run.</p></div>
+        <button class="tog" role="switch" aria-checked="${c.include_extended_attack_library}" aria-label="Include extended library" data-tog="extended"></button></div>
+    </div>
+    <div class="card"><h3>When data counts as stale</h3><p class="muted" style="margin-top:3px">${o.schedule.enabled?`Three missed runs (${o.stale.threshold_minutes} min) while the schedule is on.`:`No run for ${Math.round(o.stale.threshold_minutes/60)} hours. Turn the schedule on to get a tighter limit, or set <span class="mono">stale_after_minutes</span> in config.yaml.`} A red banner appears on every stratum screen when it happens.</p></div>
+    <div class="card"><h3>Where things live</h3><dl class="kv"><dt>Settings file</dt><dd class="mono">${esc(c.config_path)}</dd><dt>Memory &amp; audit log</dt><dd class="mono">${esc(c.state_dir)}</dd><dt>Credentials</dt><dd class="mono">${esc(c.state_dir)}/secrets.env <span class="faint">(private; never shown here)</span></dd></dl></div></div>`;
+}
+function bindControls(){
+  document.querySelectorAll("[data-tog]").forEach(b=>b.addEventListener("click",guard(async()=>{ const on=b.getAttribute("aria-checked")!=="true"; const k=b.dataset.tog;
+    if(k==="pause") await api("/api/pause",{paused:on});
+    else if(k==="schedule") await api("/api/schedule",{enabled:on,every_minutes:+$("#sch-min").value||60});
+    else if(k==="playbooks"){ if(on && !confirm("Allow XETRA to trigger REAL containment playbooks (isolate hosts, revoke keys, rotate credentials) whenever a technique is missed?")) return; await api("/api/config",{allow_live_playbooks:on}); }
+    else if(k==="extended") await api("/api/config",{include_extended_attack_library:on});
+    S.cfg=await api("/api/config"); await refresh(); toast("Updated."); render(); })));
+  $("#sch-save")?.addEventListener("click",guard(async()=>{ await api("/api/schedule",{enabled:S.ov.schedule.enabled,every_minutes:+$("#sch-min").value}); await refresh(); toast("Schedule updated."); render(); }));
 }
 
-function renderFindingsTable() {
-  let rows = currentFindings;
-  if (currentFilter === 'gap') rows = rows.filter(f => f.gap);
-  else if (currentFilter !== 'all') rows = rows.filter(f => f.bas_outcome === currentFilter);
-  document.getElementById('findingsBody').innerHTML = rows.map(f => `
-    <tr>
-      <td>${f.technique_id}</td>
-      <td>${f.stratum}</td>
-      <td><span class="pill ${f.bas_outcome}">${f.bas_outcome}</span></td>
-      <td>${f.siem_alerted ? 'yes' : 'no'}</td>
-      <td>${f.gap ? 'yes' : '\u2014'}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="5" class="empty">No findings match this filter.</td></tr>';
+/* ----------------------------------------------------------------- render */
+function render(){
+  if(!S.ov) return;
+  renderBar(); renderRail();
+  const r=S.route, m=$("#main"); let html;
+  if(r==="overview") html=renderOverview(); else if(r.startsWith("s:")) html=renderStratum(r.slice(2));
+  else if(r==="setup") html=renderSetup(); else if(r==="fixes") html=renderFixes(); else if(r==="findings") html=renderFindings(); else if(r==="activity") html=renderActivity(); else if(r==="controls") html=renderControls();
+  const y=m.scrollTop; m.innerHTML=(r==='overview'||r.startsWith('s:')||r==='findings'?staleBanner():'')+html; m.scrollTop=y;
+  document.title = "XETRA" + (S.ov.totals.gaps?` · ${S.ov.totals.gaps} missed`:"");
+  m.querySelectorAll("[data-go]").forEach(a=>a.addEventListener("click",e=>{ e.preventDefault(); go(a.dataset.go); }));
+  m.querySelectorAll("[data-s]").forEach(b=>b.addEventListener("click",()=>go("s:"+b.dataset.s)));
+  m.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",guard(async()=>{ const a=b.dataset.act; if(a==="run_all") await startRun([]); else if(a==="goto") go(b.dataset.t); else if(a==="resume"){ await api("/api/pause",{paused:false}); await refresh(); } })));
+  m.querySelectorAll("[data-retest]").forEach(b=>b.addEventListener("click",guard(()=>startRun([b.dataset.retest]))));
+  m.querySelectorAll("[data-sf]").forEach(b=>b.addEventListener("click",()=>{ S.stFilter=b.dataset.sf; render(); }));
+  m.querySelectorAll("[data-tech]").forEach(tr=>tr.addEventListener("click",()=>openTech(S.route.slice(2),tr.dataset.tech)));
+  m.querySelectorAll("[data-ff]").forEach(b=>b.addEventListener("click",()=>{ S.fixFilter.status=b.dataset.ff; render(); }));
+  $("#ffs")?.addEventListener("change",e=>{ S.fixFilter.stratum=e.target.value; render(); });
+  m.querySelectorAll("[data-decide]").forEach(b=>b.addEventListener("click",()=>decide(b.dataset.decide,b.dataset.to)));
+  const dz=$("#drop"); if(dz){ const fi=$("#evfile"); dz.addEventListener("click",()=>fi.click()); fi.addEventListener("change",()=>fi.files[0]&&viewEvidenceFile(fi.files[0]));
+    dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("over");}); dz.addEventListener("dragleave",()=>dz.classList.remove("over"));
+    dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("over"); if(e.dataTransfer.files[0]) viewEvidenceFile(e.dataTransfer.files[0]);}); }
+  m.querySelectorAll("[data-et]").forEach(b=>b.addEventListener("click",()=>{ S.evTab=b.dataset.et; render(); }));
+  $("#evf")?.addEventListener("change",e=>{ S.evFilter=e.target.value; render(); }); if($("#evf")) $("#evf").value=S.evFilter;
+  if(r==="findings") bindFindings(); if(r==="setup") bindSetup(); if(r==="controls") bindControls();
+  if(r==="overview"){ renderLive(); if(!S.bandsHydrated || !Object.keys(S.stratum).length){ S.bandsHydrated=true; hydrateBands(); } else hydrateBands(); }
 }
 
-document.getElementById('filterBar').addEventListener('click', e => {
-  if (e.target.tagName !== 'BUTTON') return;
-  document.querySelectorAll('#filterBar button').forEach(b => b.classList.remove('active'));
-  e.target.classList.add('active');
-  currentFilter = e.target.dataset.f;
-  renderFindingsTable();
-});
-
-function renderTrend(history) {
-  const labels = history.map(h => new Date(h.generated_at).toLocaleString());
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Gaps Found', data: history.map(h => h.summary.gaps_found ?? 0), borderColor: '#f6ad55', tension: 0.3 },
-        { label: 'Still Open', data: history.map(h => h.summary.recoveries_still_gapped ?? 0), borderColor: '#f56565', tension: 0.3 },
-        { label: 'Recovered', data: history.map(h => h.summary.recoveries_validated ?? 0), borderColor: '#48bb78', tension: 0.3 },
-      ],
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } },
-  });
-}
-
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-dropzone.addEventListener('click', () => fileInput.click());
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor = 'var(--accent)'; });
-dropzone.addEventListener('dragleave', () => dropzone.style.borderColor = 'var(--border)');
-dropzone.addEventListener('drop', e => {
-  e.preventDefault(); dropzone.style.borderColor = 'var(--border)';
-  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', e => { if (e.target.files.length) loadFile(e.target.files[0]); });
-
-function loadFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      document.getElementById('emptyState').style.display = 'none';
-      renderBanners({ mock_mode: data.mock_mode, mock_mode_warning: data.mock_mode_warning, stale: false, summary: data.summary });
-      renderFull(data);
-    } catch (err) {
-      alert('Could not parse this file as XETRA evidence JSON: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-}
-
-pollStatus();
-setInterval(pollStatus, 10000);
+/* ------------------------------------------------------------------ boot */
+(async function boot(){
+  const saved=store.get("xetra-theme"); document.documentElement.dataset.theme = saved || (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+  try{ S.catalog=await api("/api/catalog"); await refresh(); const h=location.hash.slice(1); if(h) { S.route=h; await loadRoute(); } render();
+    setInterval(async()=>{ if(!S.poll && !document.hidden){ try{ const prev=JSON.stringify(S.ov.strata.map(s=>[s.tested,s.gaps,s.not_tested])+S.ov.paused); S.ov=await api("/api/overview"); renderBar(); renderRail();
+      const j=S.ov.job; if(j && ["running","stopping"].includes(j.state)) startPolling(); } catch(e){} } }, 8000);
+  }catch(e){ $("#main").innerHTML=`<div class="wrap"><div class="card"><h2>Can't reach XETRA</h2><p class="muted" style="margin:6px 0">${esc(e.message)}</p></div></div>`; }
+})();
+window.addEventListener("hashchange",()=>{ const h=location.hash.slice(1); if(h && h!==S.route) go(h); });
 </script>
 </body>
 </html>

@@ -1,90 +1,47 @@
-"""
-`xetra status` — what's actually true right now, in one screen.
-No ambiguity: if there's no data yet, it says so and tells you the exact
-next command. If the last cycle is old, it says exactly how old and
-what "too old" means for this config.
-"""
+"""`xetra status` — all seven strata on one screen. Never ambiguous: if
+nothing has run, it says so and gives the exact next command."""
 from __future__ import annotations
-import json
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
-from .orchestrator import load_config
+from .core.settings import load_config_file, state_dir_for
+from .core.store import StateStore
+from .core import views
+from .orchestrator import load_all_ttps
+from .providers import STRATA, STRATUM_IDS
 
-STALENESS_THRESHOLD_MINUTES = 15  # default cycle cadence is 5 min; 3 missed = stale
-
-
-def _latest_evidence(evidence_dir: Path) -> dict | None:
-    files = sorted(evidence_dir.glob("xetra-attest-*.json"))
-    if not files:
-        return None
-    data = json.loads(files[-1].read_text())
-    data["_file"] = files[-1].name
-    data["_all_files_count"] = len(files)
-    return data
+_ICON = {"healthy": "✅", "gaps": "❌", "not_tested": "⚠️ ", "partial": "◐ ", "never_run": "· "}
 
 
 def render_status(config_path: str = "config/config.yaml") -> str:
-    lines = []
-    try:
-        config = load_config(config_path)
-    except Exception as e:
-        return (f"❌ Cannot read {config_path}: {e}\n"
-                f"   → Fix: cp config/config.example.yaml {config_path}")
-
-    evidence_dir = Path(config.get("evidence_output_dir", "evidence_output"))
-    data = _latest_evidence(evidence_dir)
-
-    if data is None:
-        return (
-            "No cycles have run yet.\n"
-            "   → Next step: python -m xetra.cli doctor --config " + config_path + "\n"
-            "               then: python -m xetra.cli run --config " + config_path
-        )
-
-    gen_at = datetime.fromisoformat(data["generated_at"])
-    age_minutes = (datetime.now(timezone.utc) - gen_at).total_seconds() / 60
-    stale = age_minutes > STALENESS_THRESHOLD_MINUTES
-
-    lines.append(f"Last cycle:   {data['cycle_label']}  ({data['_file']})")
-    lines.append(f"Generated:    {data['generated_at']}  ({age_minutes:.1f} min ago)"
-                  + ("  ⚠️  STALE — no recent cycle, check the scheduler is running" if stale else "  ✅ fresh"))
-    lines.append(f"Total cycles on disk: {data['_all_files_count']}")
-    lines.append("")
-
-    mock = data.get("mock_mode", True)
-    lines.append(f"Mode: {'⚠️  MOCK (not real evidence)' if mock else '✅ LIVE (real evidence)'}")
-    if data.get("adapter_modes"):
-        for k, v in data["adapter_modes"].items():
-            # "mock" is always worth flagging. "none" only applies to llm
-            # (an optional advisory add-on, not a validation source) and
-            # is its normal, fully-supported default — not a problem.
-            flag = "⚠️ " if v == "mock" else "✅"
-            lines.append(f"  {flag} {k}: {v}")
-    lines.append("")
-
-    s = data.get("summary", {})
-    lines.append(f"Techniques tested:      {s.get('techniques_tested', '?')}")
-    lines.append(f"Gaps found:             {s.get('gaps_found', '?')}")
-    lines.append(f"Recoveries validated:   {s.get('recoveries_validated', '?')}")
-    still_gapped = s.get('recoveries_still_gapped', 0)
-    flag = " ⚠️  ACTION NEEDED" if still_gapped else ""
-    lines.append(f"Recoveries still open:  {still_gapped}{flag}")
-    lines.append("")
-
-    if data.get("mock_mode_warning"):
-        lines.append("⚠️  " + data["mock_mode_warning"])
-        lines.append("")
-
-    lines.append(f"Dashboard: http://localhost:{config.get('_port', 8420)}  "
-                  "(run `python -m xetra.cli serve` if not already running)")
+    config = load_config_file(config_path)
+    store = StateStore(state_dir_for(config, config_path))
+    post = store.posture()
+    ttps = load_all_ttps(config.get("include_extended_attack_library", True))
+    if not any(post[s]["techniques"] for s in STRATUM_IDS):
+        return ("No checks have run yet.\n"
+                f"   → Next: xetra run --config {config_path}      (safe: everything is simulated until you connect real tools)\n"
+                f"     or:   xetra start --config {config_path}    (opens the dashboard)")
+    mode = "LIVE" if all(config[k]["provider"] != "mock" for k in ("bas", "siem", "soar", "edr")) else "SIMULATED (not audit evidence)"
+    lines = [f"Mode: {mode}", ""]
+    lines.append(f"{'':3}{'Stratum':<26}{'Tested':>10}{'Caught':>8}{'Gaps':>6}{'Unknown':>9}   Last tested")
+    for s in STRATA:
+        defined = sum(len(t["attack_ids"]) for t in ttps if t["stratum"] == s["id"])
+        sm = views.stratum_summary(post[s["id"]], defined)
+        last = "never"
+        if sm["last_tested_at"]:
+            mins = (datetime.now(timezone.utc) - datetime.fromisoformat(sm["last_tested_at"])).total_seconds() / 60
+            last = f"{mins:.0f} min ago" if mins < 120 else f"{mins/60:.1f} h ago"
+        lines.append(f"{_ICON[sm['health']]} {s['n']} {s['name']:<23}{sm['tested']:>5}/{defined:<4}{sm['caught']:>8}{sm['gaps']:>6}{sm['not_tested']:>9}   {last}")
+    rems = store.remediations()
+    lines += ["", f"Fix list: {sum(r['status']=='open' for r in rems)} open · {sum(r['status']=='approved' for r in rems)} approved · "
+                  f"{sum(r['status']=='verified' for r in rems)} verified",
+              "Dashboard: xetra start"]
     return "\n".join(lines)
 
 
 def main():
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "config/config.yaml"
-    print(render_status(config_path))
+    print(render_status(sys.argv[1] if len(sys.argv) > 1 else "config/config.yaml"))
 
 
 if __name__ == "__main__":

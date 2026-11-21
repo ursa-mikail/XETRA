@@ -38,3 +38,18 @@ flowchart TB
 ## Why mock-by-default
 
 Every adapter ships two implementations: a `mock.py` (deterministic, zero credentials, zero risk — this is what runs out of the box) and a vendor-specific "live" stub shaped to that vendor's real, documented public API (`attackiq.py`, `splunk.py`, `tines.py`, `crowdstrike.py`). Flipping a stratum to live mode requires your own license, your own API credentials, and — critically — your own signed scope/Rules-of-Engagement entry in `config.yaml`, because BAS platforms are built to run their safe emulation modules only inside an authorized boundary you define.
+
+## v0.2 additions: memory, engine, API
+
+```
+dashboard (browser) ──JSON──> server.py ──> engine.py (one run at a time · stop · pause · schedule)
+                                   │             └─> orchestrator.py ─> agents ─> adapters
+                                   └─> store.py  (.xetra/: posture · fix list · runs · audit log)
+                                       settings.py (config.yaml + secrets.env, write-only)
+                                       connect.py  (per-vendor "does this work?" checks)
+```
+
+* **Posture is keyed per technique**, not per run. A run only updates what it tested, so a one-stratum run can never hide the other six.
+* **A run persists nothing until it finishes.** Stop (or a crash) leaves posture exactly as before.
+* **Findings have three statuses** — caught, gap, not_tested — and only a *gap* creates a fix item or can trigger a playbook.
+* **`providers.py` is the single source of truth** for what each integration is and needs; Setup, `doctor`, `init` and the docs all derive from it.

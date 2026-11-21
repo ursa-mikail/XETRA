@@ -99,3 +99,29 @@
   attack_ids: ["T1542.001", "T1542.003", "T1200"]
   description: "Pre-OS boot (system firmware, bootkit), hardware additions."
   expected_control: "Measured-boot/firmware-attestation failure alerting; unauthorized-device-connection alerting"
+
+# --- Added in v0.2: deeper coverage for strata 4-7 (previously 1 entry each) ---
+
+- id: ext-protocol-03
+  stratum: protocol
+  attack_ids: ["T1557.001", "T1071.004", "T1048.003", "T1040"]
+  description: "LLMNR/NBT-NS poisoning and SMB relay, DNS-based C2, exfiltration over unencrypted non-C2 protocol, network sniffing."
+  expected_control: "SMB signing enforced + relay alerting; DNS query anomaly detection (volume, entropy); east-west sniffing detection"
+
+- id: ext-algorithm-02
+  stratum: algorithm
+  attack_ids: ["T1110.002", "T1552.004", "T1556", "T1606"]
+  description: "Offline password cracking, private-key theft, modified authentication process, forged web credentials — weaknesses in how secrets and tokens are derived and validated."
+  expected_control: "Strong KDF on credential stores; key-access audit alerts; token-signing key rotation evidence"
+
+- id: ext-software-02
+  stratum: software
+  attack_ids: ["T1068", "T1129", "T1574.002"]
+  description: "Exploitation for privilege escalation, shared-module loading, DLL side-loading — code-level weaknesses in software on your endpoints and servers."
+  expected_control: "Exploit-protection / behavioural EDR detection; module-load anomaly alerts; patch-latency SLA evidence"
+
+- id: ext-hardware-02
+  stratum: hardware
+  attack_ids: ["T1542.002", "T1495", "T1052.001"]
+  description: "Component firmware tampering, firmware corruption, exfiltration over USB."
+  expected_control: "Firmware-hash attestation failure alerting; USB mass-storage device control"

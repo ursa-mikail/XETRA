@@ -1,23 +1,26 @@
-# One-command demo, two services sharing an evidence volume:
-#   xetra-cycle  — runs a HUNT->HARDEN->RESPOND->RECOVER->ATTEST cycle
-#                  every 5 minutes against mock adapters by default.
-#   xetra-web    — serves the dashboard at http://localhost:8420,
-#                  auto-loading whatever xetra-cycle produces.
+# One-command demo:  ./up   →  http://localhost:8420
 #
-# Edit ../config/config.yaml and pass real credentials via environment
-# to go live on any stratum (see docs/GOING_LIVE.md).
-version: "3.9"
+# One container does both jobs the old two-container setup did:
+#   * runs a full HUNT→HARDEN→RESPOND→RECOVER→ATTEST cycle immediately, then every 5 minutes
+#     (XETRA_SCHEDULE_MINUTES) — against simulated data until you connect real tools
+#   * serves the dashboard, which updates live
+# Unlike the old loop, the schedule is visible in the dashboard and can be paused, changed or
+# switched off there. A change made in the dashboard wins over the variable below.
+#
+# Go live: enter credentials in the dashboard (Setup), or uncomment variables below
+# (variables set here always win over the dashboard).
+# Published on 127.0.0.1 only. To expose it, put your own authenticating proxy in front
+# and set XETRA_ALLOWED_HOSTS.
 services:
-  xetra-cycle:
+  xetra:
     build:
       context: ..
       dockerfile: Dockerfile
-    volumes:
-      - ../config:/app/config
-      - xetra-evidence:/app/evidence_output
+    ports:
+      - "127.0.0.1:8420:8420"
     environment:
       - PYTHONUNBUFFERED=1
-      # Uncomment and fill to go live on a stratum (see docs/GOING_LIVE.md):
+      - XETRA_SCHEDULE_MINUTES=5
       # - ATTACKIQ_BASE_URL=
       # - ATTACKIQ_API_TOKEN=
       # - SPLUNK_BASE_URL=
@@ -25,27 +28,12 @@ services:
       # - FALCON_CLIENT_ID=
       # - FALCON_CLIENT_SECRET=
       # - ANTHROPIC_API_KEY=
-    command: >
-      sh -c "while true; do
-        python -m xetra.cli run --config config/config.yaml --label scheduled;
-        sleep 300;
-      done"
-
-  xetra-web:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    depends_on:
-      - xetra-cycle
-    ports:
-      - "8420:8420"
     volumes:
       - ../config:/app/config
+      - xetra-state:/app/.xetra
       - xetra-evidence:/app/evidence_output
-    environment:
-      - PYTHONUNBUFFERED=1
-    entrypoint: ["python", "-m", "xetra.cli"]
-    command: ["serve", "--port", "8420", "--evidence-dir", "evidence_output", "--config", "config/config.yaml"]
+    restart: unless-stopped
 
 volumes:
+  xetra-state:
   xetra-evidence:

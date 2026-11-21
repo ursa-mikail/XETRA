@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Stop the stack AND remove containers, the built image, and the
-# evidence volume. Full reset back to a fresh checkout.
+# Stop the stack AND remove containers, the built image, and all volumes
+# (results, fix list, audit log, saved credentials). Full reset to a fresh checkout.
+# Asks first when run from a terminal; pass -y to skip the question (scripts/CI).
 set -euo pipefail
 cd "$(dirname "$0")"
+if [ -t 0 ] && [ "${1:-}" != "-y" ]; then
+  read -r -p "This erases ALL XETRA data, including the audit log and saved credentials. Type 'erase' to continue: " a
+  [ "$a" = "erase" ] || { echo "Cancelled."; exit 1; }
+fi
 (cd docker && docker compose down -v --rmi local)
-rm -f config/config.yaml
-echo "XETRA cleaned: containers, image, evidence volume, and local config removed."
+rm -rf config/config.yaml config/config.yaml.bak .xetra evidence_output
+echo "XETRA cleaned: containers, image, volumes, and local config removed."

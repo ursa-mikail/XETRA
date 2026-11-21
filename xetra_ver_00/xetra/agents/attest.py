@@ -38,6 +38,7 @@ class AttestAgent:
         recoveries: list[RecoveryRecord],
         cycle_label: str = "cycle",
         adapter_modes: dict[str, str] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> Path:
         timestamp = datetime.now(timezone.utc).isoformat()
         adapter_modes = adapter_modes or {}
@@ -67,7 +68,9 @@ class AttestAgent:
             "adapter_modes": adapter_modes,
             "summary": {
                 "techniques_tested": len(findings),
-                "gaps_found": sum(1 for f in findings if f.gap),
+                "gaps_found": sum(1 for f in findings if f.status == "gap"),
+                "techniques_caught": sum(1 for f in findings if f.status == "caught"),
+                "not_tested": sum(1 for f in findings if f.status == "not_tested"),
                 "gaps_remediated_pending_human_approval": len(remediations),
                 "responses_triggered": len(responses),
                 "recoveries_validated": sum(1 for r in recoveries if not r.still_gapped),
@@ -85,20 +88,29 @@ class AttestAgent:
             ),
         }
 
+        if extra:
+            package.update(extra)
+
         if self.llm is not None:
-            draft = self.llm.summarize_cycle(package["summary"])
-            package["analyst_summary"] = {
-                "text": draft.text,
-                "provider": draft.provider,
-                "model": draft.model,
-                "advisory_only": draft.advisory_only,
-                "disclaimer": (
-                    "LLM-drafted. Not a factual source — every number here is "
-                    "copied from the 'summary' block above, computed by XETRA's "
-                    "agents, not the LLM. A human must review this text before "
-                    "it is used in any filing, report, or remediation record."
-                ),
-            }
-        out_path = self.output_dir / f"xetra-attest-{cycle_label}-{timestamp.replace(':', '')}.json"
+            # An LLM problem (bad key, wrong model, outage) must never cost you
+            # the evidence from a whole cycle. Record it and carry on.
+            try:
+                draft = self.llm.summarize_cycle(package["summary"])
+                package["analyst_summary"] = {
+                    "text": draft.text,
+                    "provider": draft.provider,
+                    "model": draft.model,
+                    "advisory_only": draft.advisory_only,
+                    "disclaimer": (
+                        "LLM-drafted. Not a factual source — every number here is "
+                        "copied from the 'summary' block above, computed by XETRA's "
+                        "agents, not the LLM. A human must review this text before "
+                        "it is used in any filing, report, or remediation record."
+                    ),
+                }
+            except Exception as e:
+                package["analyst_summary_error"] = f"{type(e).__name__}: {e}"
+        safe_label = "".join(c if c.isalnum() or c in "-_" else "-" for c in cycle_label)
+        out_path = self.output_dir / f"xetra-attest-{safe_label}-{timestamp.replace(':', '')}.json"
         out_path.write_text(json.dumps(package, indent=2, default=str))
         return out_path

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stop the XETRA demo stack (containers only; evidence volume persists).
+# Stop XETRA (containers only; results, fix list and settings persist).
 set -euo pipefail
 cd "$(dirname "$0")"
 (cd docker && docker compose down)
-echo "XETRA is down. Evidence volume preserved — run ./clean to remove it too."
+echo "XETRA is down. Data preserved — run ./clean to remove it too."
